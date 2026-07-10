@@ -1,5 +1,8 @@
 /* Global baseline */
 * { box-sizing: border-box; }
+/* The hidden attribute must always win, even over display:flex/grid component
+   classes (UA [hidden] rules lose to any author display rule otherwise). */
+[hidden] { display: none !important; }
 html, body { margin: 0; height: 100%; }
 body {
   background: radial-gradient(1200px 500px at 50% -180px, var(--radial-bg) 0%, rgba(23,29,43,0) 70%),
@@ -1133,6 +1136,139 @@ a.btn { text-decoration: none; }
 @media (max-width: 620px) {
   .sim-grid { grid-template-columns: 1fr; }
   .sim-row-rank, .sim-row-adp { display: none; }
+}
+
+/* Targets solver (reverse mode of Simulate) */
+.solver-add { position: relative; margin-bottom: 8px; }
+
+input.search.solver-search {
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
+}
+
+.solver-suggest {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  background: var(--panel2);
+  border: 1px solid var(--edge2);
+  border-radius: 8px;
+  box-shadow: var(--shadow);
+  z-index: 6;
+  max-height: 230px;
+  overflow: auto;
+}
+
+.solver-suggest button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 10px;
+  border: none;
+  background: none;
+  color: var(--ink);
+  font-size: 12.5px;
+  text-align: left;
+  cursor: pointer;
+}
+
+.solver-suggest button:hover,
+.solver-suggest button:focus-visible { background: var(--row-h); }
+
+.solver-suggest-team {
+  margin-left: auto;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink3);
+}
+
+.solver-suggest-empty {
+  display: block;
+  padding: 6px 10px;
+  font-size: 12px;
+  color: var(--ink3);
+}
+
+.solver-target-list {
+  display: flex;
+  flex-direction: column;
+  max-height: 210px;
+  overflow: auto;
+  margin-bottom: 6px;
+}
+
+.solver-target-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 4px 0;
+  border-bottom: 1px solid var(--edge);
+  font-size: 12.5px;
+}
+
+.solver-target-row:last-child { border-bottom: none; }
+
+.solver-target-row .cadence-number { width: 58px; flex: none; text-align: right; }
+
+.solver-target-pctsign { color: var(--ink3); font-size: 11.5px; flex: none; }
+
+.solver-target-remove {
+  border: none;
+  background: none;
+  color: var(--ink3);
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 6px;
+  border-radius: 6px;
+  flex: none;
+}
+
+.solver-target-remove:hover { color: var(--down); background: var(--row-h); }
+
+.solver-paste-toggle { margin: 2px 0 6px; }
+
+.solver-paste textarea { width: 100%; box-sizing: border-box; min-height: 84px; }
+
+.solver-result { margin-top: 10px; }
+
+.solver-banner {
+  margin: 0 0 8px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--edge2);
+}
+
+.solver-banner.ok { border-color: var(--up); color: var(--ink); }
+.solver-banner.warn { border-color: var(--down); color: var(--ink2); }
+
+.solver-row-flag {
+  flex: none;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .4px;
+  text-transform: uppercase;
+  color: var(--down);
+}
+
+.solver-row-note {
+  margin: 4px 0 8px;
+  font-size: 11px;
+  color: var(--ink3);
+  line-height: 1.45;
+}
+
+.solver-moves-head { margin-top: 12px; }
+
+.solver-apply-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
 }
 
 /* Guide / first-run tour */

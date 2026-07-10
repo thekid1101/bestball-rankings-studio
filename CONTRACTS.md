@@ -245,6 +245,56 @@ export function runSimulation({ players, userOrder, userSlot, params, seed, onDr
 // disables for teams that don't resolve.
 ```
 
+## C-solver — reverse solver: rankings from target exposures (`src/core/solver.js`, `src/workers/solver-worker.js`)
+
+Inverse mode of C-sim: the user supplies target exposure percentages for a subset of
+players; the solver searches for a board order whose autodraft exposures (same field
+model, seat mode, and user roster rules as C-sim) approximate them. Pure ESM, no DOM,
+seeded and fully deterministic (fixed seed per evaluation batch; the solver draws no
+randomness itself).
+
+```js
+export const SOLVER_DEFAULTS = {
+  batchIterations: 500, maxRounds: 40, tolerance: 0.03, stallRounds: 8,
+  minImprovement: 0.002, capRounds: 3, stepScale: 0.5,
+  gainInit: 1, gainGrow: 1.25, gainShrink: 0.5, gainMin: 0.05, gainMax: 4,
+  confirmSlack: 0.5, confirmSeedOffset: 1000003,
+};
+
+export function solveTargets({ players, initialOrder, targets, userSlot, params, seed, schedule, solver, onProgress })
+// players/userSlot/params/seed/schedule: exactly as runSimulation (C-sim);
+//   params.iterations is ignored (the solver sets it per batch).
+// initialOrder: string[] ids — the user's current board order (search start point).
+// targets: [{ id, pct }] with pct a FRACTION in [0,1]; unlisted players are free variables.
+// solver: partial SOLVER_DEFAULTS override. onProgress: ({phase:"batch"|"round",
+//   round, rounds, done, total, score?}) — batch ticks per draft, one "round" per round.
+// Algorithm: per round, one fixed-seed batch -> per-target error (achieved - target) ->
+//   each targeted player moves up/down proportionally to the error with a per-player
+//   adaptive gain (sign flip halves it); untargeted players only shift to make room and
+//   NEVER change relative order. Candidate convergence is re-verified on a fresh seed.
+// Equilibrium failure is a first-class outcome, never a silent bad board:
+//   - position-capacity prechecks (targets at a position summing past the build's cap)
+//     fail BEFORE any drafts run;
+//   - a player pinned at a board boundary for capRounds rounds while still outside
+//     tolerance is reported unreachable with its closest achieved value;
+//   - stall (stallRounds without improvement) or budget exhaustion stops the search and
+//     returns the best board found with every unmet target listed in `reasons`.
+// Returns { status: "converged"|"failed", reasons: string[], order: string[],
+//   perTarget: [{id, target, achieved, rankBefore, rankAfter, withinTol, reachable, note}],
+//   tolerance, roundsUsed, draftsRun, confirmed }
+
+export function diffOrders(before, after) // -> [{id, from, to}] 1-indexed, by |move| desc
+
+// src/workers/solver-worker.js — module worker, mirrors sim-worker.
+// in:  {cmd:"run", payload:{players, initialOrder, targets, userSlot, params, seed, schedule, solver}}
+// out: {type:"progress", phase, round, rounds, done, total, score?}
+//      {type:"result", result} | {type:"error", message}
+// Cancellation = handler detach + terminate(); no cancel message (same rule as C-sim).
+// UI (src/ui/solver-panel.js, opened from the Simulate panel): targets via search-add or
+// pasted "Name, %" lines matched through C4 buildReferenceSource; a proposed board is
+// only written to the editor via editor.setOrder (ONE undo step) on an explicit Apply.
+```
+
 ## Hard invariants (reviewer checks every module against these)
 
 1. No baked-in third-party/paid rankings or player data anywhere. Grep-clean for

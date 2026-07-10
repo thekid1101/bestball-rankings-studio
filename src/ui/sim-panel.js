@@ -7,6 +7,7 @@
 // sessions). Pure DOM wiring; only touches `document`/`Worker` inside
 // function bodies so this module stays importable under plain Node.
 import { openModal, closeModal, showToast, escapeHtml } from "./modals.js";
+import { openSolverPanel } from "./solver-panel.js";
 import schedule from "../data/schedule-wk15-17.json" with { type: "json" };
 
 const ITERATIONS_OPTIONS = [100, 250, 500, 1000, 2000, 5000];
@@ -200,6 +201,7 @@ function buildControlsHtml(config) {
     teamsRoundsField +
     posRulesField +
     '<button type="button" class="btn primary sim-run-btn" data-run>Run simulation</button>' +
+    '<button type="button" class="btn ghost sim-run-btn" data-open-solver>Targets solver — reverse mode →</button>' +
     '<div class="sim-progress" data-progress hidden>' +
     '<div class="sim-progress-track"><div class="sim-progress-fill" data-progress-fill></div></div>' +
     '<div class="sim-progress-label" data-progress-label>0 / 0 drafts</div>' +
@@ -278,6 +280,7 @@ export function openSimPanel({ config, editor, storage, onRequestImport }) {
       const fixedSumEl = modalEl.querySelector("[data-fixed-sum]");
       const posHintEl = modalEl.querySelector("[data-pos-hint]");
       const runBtn = modalEl.querySelector("[data-run]");
+      const solverBtn = modalEl.querySelector("[data-open-solver]");
       const progressWrap = modalEl.querySelector("[data-progress]");
       const progressFill = modalEl.querySelector("[data-progress-fill]");
       const progressLabel = modalEl.querySelector("[data-progress-label]");
@@ -538,6 +541,7 @@ export function openSimPanel({ config, editor, storage, onRequestImport }) {
           iterSel,
           teamsInput,
           roundsInput,
+          solverBtn,
           ...posMinInputs.values(),
           ...posMaxInputs.values(),
           ...posFixedInputs.values(),
@@ -672,6 +676,12 @@ export function openSimPanel({ config, editor, storage, onRequestImport }) {
       runBtn.addEventListener("click", () => {
         if (running) cancelRun();
         else startRun();
+      });
+
+      solverBtn.addEventListener("click", () => {
+        if (running) return;
+        closeModal();
+        openSolverPanel({ config, editor, storage });
       });
     },
   });
