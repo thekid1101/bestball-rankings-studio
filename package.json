@@ -1,0 +1,16 @@
+{
+  "name": "bestball-rankings-studio",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "check": "node scripts/verify.mjs"
+  },
+  "devDependencies": {
+    "sortablejs": "^1.15.7",
+    "vite": "^6.4.3"
+  }
+}

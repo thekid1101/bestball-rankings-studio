@@ -1,0 +1,305 @@
+/* Board row */
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 12px 8px 6px;
+  margin: 3px 0;
+  border-radius: 10px;
+  background: var(--row);
+  border: 1px solid var(--row-border);
+  position: relative;
+  transition: background .1s, border-color .1s, box-shadow .1s;
+  cursor: pointer;
+}
+
+.row:hover { background: var(--row-h); border-color: var(--row-hover-border); }
+
+.row.selected {
+  background: var(--row-sel);
+  border-color: var(--steel-d);
+}
+
+.row.selected:hover { background: var(--row-sel-hover); }
+
+.row.band { background: var(--band-bg); }
+
+/* SortableJS drag feel */
+.row.row-ghost {
+  opacity: .4;
+  background: var(--row-h);
+  border: 1px dashed var(--steel-d);
+}
+
+.row.row-chosen {
+  border-color: var(--steel);
+  box-shadow: var(--shadow);
+}
+
+.row.row-drag {
+  cursor: grabbing;
+}
+
+.row:focus-visible {
+  outline: 2px solid var(--steel);
+  outline-offset: 2px;
+}
+
+/* Gutter for tier add */
+.gutter {
+  width: 16px;
+  flex: none;
+  display: flex;
+  justify-content: center;
+  opacity: 0;
+  transition: .1s;
+}
+
+.row:hover .gutter { opacity: 1; }
+
+.addtier {
+  cursor: pointer;
+  color: var(--ink3);
+  font-size: 14px;
+  line-height: 1;
+  transform: translateY(-1px);
+}
+
+.addtier:hover { color: var(--gold-t); }
+
+/* Drag handle */
+.handle {
+  width: 20px;
+  flex: none;
+  color: var(--handle-color);
+  cursor: grab;
+  font-size: 15px;
+  text-align: center;
+  line-height: 1;
+  letter-spacing: -2px;
+  transition: .1s;
+}
+
+.handle:hover { color: var(--ink2); }
+.handle:active { cursor: grabbing; }
+
+/* Rank box */
+.rank {
+  width: 44px;
+  flex: none;
+  height: 34px;
+  border-radius: 8px;
+  border: 1px solid var(--steel-d);
+  background: linear-gradient(180deg, var(--rank-grad-a), var(--rank-grad-b));
+  color: var(--rank-text);
+  font-family: var(--mono);
+  font-weight: 700;
+  font-size: 15px;
+  display: grid;
+  place-items: center;
+  cursor: text;
+  transition: .12s;
+  padding: 0;
+}
+
+.rank:hover {
+  border-color: var(--steel);
+  box-shadow: 0 0 0 3px rgba(95,160,221,.1);
+}
+
+.rank:focus-visible {
+  outline: 2px solid var(--steel);
+  outline-offset: 2px;
+}
+
+.rank input {
+  width: 100%;
+  height: 100%;
+  border: none;
+  background: transparent;
+  color: var(--rank-input);
+  text-align: center;
+  font-family: var(--mono);
+  font-size: 15px;
+  font-weight: 700;
+  outline: none;
+}
+
+/* Who section: name, pos, team */
+.who {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.pos-badge {
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: .5px;
+  padding: 2px 6px;
+  border-radius: 5px;
+  flex: none;
+  width: 30px;
+  text-align: center;
+  border: 1px solid transparent;
+}
+
+.pos-badge.qb {
+  background: var(--qb-bg);
+  color: var(--qb-text);
+  border-color: var(--qb-border);
+}
+
+.pos-badge.rb {
+  background: var(--rb-bg);
+  color: var(--rb-text);
+  border-color: var(--rb-border);
+}
+
+.pos-badge.wr {
+  background: var(--wr-bg);
+  color: var(--wr-text);
+  border-color: var(--wr-border);
+}
+
+.pos-badge.te {
+  background: var(--te-bg);
+  color: var(--te-text);
+  border-color: var(--te-border);
+}
+
+.name {
+  font-weight: 650;
+  font-size: 14px;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.team {
+  font-size: 11px;
+  color: var(--ink3);
+  font-weight: 600;
+  font-family: var(--mono);
+  letter-spacing: .5px;
+  flex: none;
+}
+
+.edott {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--gold-t);
+  flex: none;
+  box-shadow: 0 0 6px var(--gold-t);
+  opacity: .9;
+}
+
+/* References (ADP & source) */
+.refs { display: flex; gap: 8px; flex: none; }
+
+.ref {
+  width: 96px;
+  height: 38px;
+  border-radius: 8px;
+  border: 1px solid var(--edge);
+  background: var(--panel2);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 9px;
+  position: relative;
+}
+
+.ref .rl {
+  font-size: 8.5px;
+  font-weight: 800;
+  letter-spacing: .8px;
+  color: var(--ink3);
+  position: absolute;
+  top: 4px;
+  left: 9px;
+}
+
+.ref .rv {
+  font-family: var(--mono);
+  font-size: 15px;
+  font-weight: 700;
+  margin-top: 7px;
+}
+
+.ref.adp {
+  border-color: var(--gold-b);
+}
+
+.ref.adp .rl { color: var(--gold-t); }
+.ref.adp .rv { color: var(--adp-text); }
+
+.ref.src {
+  border-color: var(--violet-b);
+}
+
+.ref.src .rl { color: var(--violet); }
+.ref.src .rv { color: var(--src-text); }
+
+.ref .na {
+  color: var(--ink3);
+  font-family: var(--mono);
+  font-size: 14px;
+  margin-top: 7px;
+}
+
+.arrow {
+  margin-left: auto;
+  margin-top: 6px;
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 800;
+  display: flex;
+  align-items: center;
+  gap: 1px;
+}
+
+.arrow.up { color: var(--up); }
+.arrow.down { color: var(--down); }
+.arrow.even { color: var(--even); }
+
+/* Drop indicator */
+.drop-ind {
+  position: absolute;
+  left: 8px;
+  right: 8px;
+  height: 2px;
+  background: var(--steel);
+  border-radius: 2px;
+  box-shadow: 0 0 8px var(--steel);
+  pointer-events: none;
+  z-index: 5;
+  display: none;
+}
+
+.drop-ind.show { display: block; }
+
+/* Reduced motion */
+@media (prefers-reduced-motion: reduce) {
+  .row, .handle, .rank { transition: none; }
+  .row.row-chosen { box-shadow: none; }
+}
+
+/* Responsive */
+@media (max-width: 560px) {
+  .refs { display: none; }
+  .team { display: none; }
+  .row { gap: 10px; padding: 8px 10px 8px 4px; }
+}
+
+@media (max-width: 360px) {
+  .rank { width: 40px; height: 32px; font-size: 14px; }
+  .rank input { font-size: 14px; }
+  .name { font-size: 13px; }
+  .pos-badge { width: 26px; font-size: 9px; padding: 1px 4px; }
+  .who { gap: 6px; }
+}

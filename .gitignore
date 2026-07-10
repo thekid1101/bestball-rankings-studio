@@ -1,0 +1,15 @@
+node_modules/
+dist/
+
+# Local-only source material — never publish (contains third-party/paid
+# rankings data and personal working files)
+underdog_rankings_editor (1).html
+draftkings_rankings_editor (1).html
+draft_rankings_editor.html
+BUILD_PROMPT (1).md
+BBM Draft simulator/
+*.csv
+bestball-backup-*.json
+
+# Local tool state
+.claude/settings.local.json
