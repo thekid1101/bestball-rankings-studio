@@ -84,7 +84,10 @@ export function openModal({ title, bodyHtml, footHtml = "", onClose, onMount }) 
   });
 
   current = { scrim, modalEl, keyHandler, onClose };
-  requestAnimationFrame(() => scrim.classList.add("show"));
+  // Flush styles, then add .show synchronously so the entrance transition
+  // runs. (rAF never fires in backgrounded tabs, which left modals invisible.)
+  void scrim.offsetHeight;
+  scrim.classList.add("show");
   if (onMount) onMount(modalEl);
   const firstFocusable = modalEl.querySelector("button, input, textarea, select, [tabindex]");
   if (firstFocusable) firstFocusable.focus();
