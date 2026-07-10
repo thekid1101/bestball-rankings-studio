@@ -9,6 +9,7 @@ import { buildShell, setActiveTab, setAccent, renderEmptyState } from "./shell.j
 import { openImportModal, openExportModal, openReferenceModal, openResetModal, openBackupModal, openSupportModal, showToast } from "./modals.js";
 import { openCadencePanel } from "./cadence-panel.js";
 import { openSimPanel } from "./sim-panel.js";
+import { openTour, maybeShowTour } from "./tour.js";
 
 function boot() {
   let appRoot = document.getElementById("app");
@@ -140,6 +141,7 @@ function boot() {
   shell.actionButtons.backup.addEventListener("click", () => openBackupModal());
   shell.actionButtons.support.addEventListener("click", () => openSupportModal());
   shell.actionButtons.reset.addEventListener("click", openReset);
+  shell.actionButtons.guide.addEventListener("click", () => openTour());
   shell.tabsEl.addEventListener("click", (e) => {
     const btn = e.target.closest("[data-platform]");
     if (btn) switchPlatform(btn.getAttribute("data-platform"));
@@ -148,6 +150,8 @@ function boot() {
   const savedActive = appStorage.get("activePlatform", null);
   const initialId = savedActive && platforms[savedActive] ? savedActive : platformList[0].id;
   switchPlatform(initialId);
+
+  maybeShowTour(appStorage);
 }
 
 if (typeof document !== "undefined") {

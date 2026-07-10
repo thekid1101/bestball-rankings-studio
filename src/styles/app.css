@@ -1088,3 +1088,52 @@ a.btn { text-decoration: none; }
   .sim-grid { grid-template-columns: 1fr; }
   .sim-row-rank, .sim-row-adp { display: none; }
 }
+
+/* Guide / first-run tour */
+.foot-link.subtle {
+  color: var(--ink3);
+  border-color: var(--edge);
+  background: transparent;
+  font-weight: 600;
+}
+.foot-link.subtle:hover { color: var(--ink); }
+
+.tour-heading {
+  margin: 0 0 8px;
+  font-size: 16px;
+  font-weight: 750;
+  color: var(--ink);
+}
+
+.tour-dots {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tour-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  border: none;
+  padding: 0;
+  background: var(--edge2);
+  cursor: pointer;
+  transition: background .12s;
+}
+.tour-dot:hover { background: var(--hover-edge); }
+.tour-dot.on { background: var(--accent, var(--steel)); }
+.tour-dot:focus-visible {
+  outline: 2px solid var(--steel);
+  outline-offset: 2px;
+}
+
+.tour-glow {
+  box-shadow: 0 0 0 2px var(--steel), 0 0 14px var(--steel);
+  border-radius: 8px;
+  transition: box-shadow .2s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tour-glow { transition: none; }
+}
