@@ -13,3 +13,5 @@ bestball-backup-*.json
 
 # Local tool state
 .claude/settings.local.json
+
+NEXT_FEATURE_PROMPT.md

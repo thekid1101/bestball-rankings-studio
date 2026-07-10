@@ -164,6 +164,10 @@ export default {
   columns: [{ key: "adp", label: "Src ADP", kind: "gold" }],
   rosterShape: { positions: ["QB", "RB", "WR", "TE"] },
   exportFilename: "drafters_players.csv",
+  // Optional (C1): seeds the Simulate panel's Teams/Rounds inputs and the
+  // "Fixed build" per-position roster-rule defaults. 18 rounds is an
+  // assumption (mirrors UD) pending a real Drafters draft config.
+  simDefaults: { teams: 12, rounds: 18, fixedBuild: { QB: 3, RB: 5, WR: 7, TE: 3 } },
 
   parseImport,
   serializeExport,

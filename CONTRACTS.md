@@ -39,6 +39,12 @@ export default {
   rosterShape: { positions: ["QB","RB","WR","TE"] },
   exportFilename: "draftkings_rankings.csv",
 
+  // OPTIONAL. Seeds the Simulate panel: Teams/Rounds inputs init from
+  // teams/rounds (fall back to the panel's own constants when omitted);
+  // fixedBuild seeds the "Fixed build" roster-rule mode's per-position
+  // counts (fall back to the panel's own default when omitted).
+  simDefaults: { teams: 12, rounds: 20, fixedBuild: { QB: 3, RB: 6, WR: 8, TE: 3 } },
+
   // Parse the platform's own export upload. NEVER throws on bad rows — skips and warns.
   // Returns players in file order. Must handle RFC-4180 quoting where the platform uses it.
   parseImport(text) { /* -> { players: Player[], warnings: string[] } */ },

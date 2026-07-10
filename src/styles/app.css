@@ -1084,6 +1084,52 @@ a.btn { text-decoration: none; }
 
 .sim-pos-rule-sep { color: var(--ink3); font-size: 12px; flex: none; }
 
+.sim-mode-toggle {
+  display: flex;
+  border: 1px solid var(--edge2);
+  border-radius: 999px;
+  padding: 2px;
+  gap: 2px;
+  flex: none;
+}
+
+.sim-mode-btn {
+  border: none;
+  background: transparent;
+  color: var(--ink3);
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: .2px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: .12s;
+}
+
+.sim-mode-btn:hover { color: var(--ink); }
+
+.sim-mode-btn.on {
+  background: var(--row-sel);
+  color: var(--tab-on-text);
+}
+
+.sim-mode-btn:disabled { cursor: default; opacity: .6; }
+
+.sim-mode-btn:focus-visible {
+  outline: 2px solid var(--steel);
+  outline-offset: 2px;
+}
+
+.sim-fixed-sum {
+  margin: 2px 0 0;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--ink3);
+  font-variant-numeric: tabular-nums;
+}
+
+.sim-fixed-sum.down { color: var(--down); }
+
 @media (max-width: 620px) {
   .sim-grid { grid-template-columns: 1fr; }
   .sim-row-rank, .sim-row-adp { display: none; }

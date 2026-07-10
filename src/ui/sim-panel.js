@@ -20,6 +20,11 @@ const ROSTER_POS = ["QB", "RB", "WR", "TE"];
 // with a 4-QB cap would take the 4th QB in most sims, so the user's own seat
 // defaults to the classic 2-3/4-8/5-10/2-3 shape. Editable per run.
 const POS_RULE_DEFAULTS = { QB: [2, 3], RB: [4, 8], WR: [5, 10], TE: [2, 3] };
+// Fallback "Fixed build" allocation when a platform config omits
+// simDefaults.fixedBuild — matches real platform autodraft: it fills every
+// remaining roster spot with the highest-ranked available player, so a
+// "fixed build" is just a per-position count instead of a min-max range.
+const FIXED_BUILD_DEFAULTS = { QB: 3, RB: 5, WR: 7, TE: 3 };
 
 // Per-editor-instance "board changed since last sim run" flag. Registered
 // once per editor (editor.onChange has no unsubscribe, so we must not stack
@@ -110,6 +115,11 @@ function buildEmptyHtml(config) {
 }
 
 function buildControlsHtml(config) {
+  const simDefaults = config.simDefaults || {};
+  const teams = Number.isFinite(simDefaults.teams) ? simDefaults.teams : DEFAULT_TEAMS;
+  const rounds = Number.isFinite(simDefaults.rounds) ? simDefaults.rounds : DEFAULT_ROUNDS;
+  const fixedBuild = simDefaults.fixedBuild || FIXED_BUILD_DEFAULTS;
+
   const slotField =
     '<div class="cadence-field">' +
     '<div class="cadence-field-row"><label for="sim-slot">Draft slot</label></div>' +
@@ -129,10 +139,20 @@ function buildControlsHtml(config) {
     '<div class="cadence-field">' +
     '<div class="cadence-field-row"><label for="sim-teams">Teams &amp; rounds</label></div>' +
     '<div class="sim-inline-inputs">' +
-    `<input type="number" min="2" max="24" class="cadence-number" id="sim-teams" data-teams value="${DEFAULT_TEAMS}" />` +
-    `<input type="number" min="1" max="30" class="cadence-number" id="sim-rounds" data-rounds value="${DEFAULT_ROUNDS}" />` +
+    `<input type="number" min="2" max="24" class="cadence-number" id="sim-teams" data-teams value="${teams}" />` +
+    `<input type="number" min="1" max="30" class="cadence-number" id="sim-rounds" data-rounds value="${rounds}" />` +
     "</div>" +
     "</div>";
+
+  const posFixedRow = (pos) => {
+    const val = Number.isFinite(fixedBuild[pos]) ? fixedBuild[pos] : FIXED_BUILD_DEFAULTS[pos];
+    return (
+      '<div class="sim-pos-rule sim-pos-fixed">' +
+      `<span class="pos-badge ${pos.toLowerCase()}">${pos}</span>` +
+      `<input type="number" min="0" max="30" class="cadence-number" data-pos-fixed="${pos}" value="${val}" aria-label="${pos} roster spots" />` +
+      "</div>"
+    );
+  };
 
   const posRuleRow = (pos) => {
     const [min, max] = POS_RULE_DEFAULTS[pos];
@@ -148,8 +168,18 @@ function buildControlsHtml(config) {
 
   const posRulesField =
     '<div class="cadence-field">' +
+    '<div class="cadence-field-row">' +
     '<p class="cadence-eyebrow">Your roster rules</p>' +
-    '<div class="sim-pos-rules" data-pos-rules>' +
+    '<div class="sim-mode-toggle" data-mode-toggle role="tablist" aria-label="Roster rule mode">' +
+    '<button type="button" class="sim-mode-btn on" data-mode-btn="fixed">Fixed build</button>' +
+    '<button type="button" class="sim-mode-btn" data-mode-btn="range">Range</button>' +
+    "</div>" +
+    "</div>" +
+    '<div class="sim-pos-rules" data-pos-rules-fixed>' +
+    ROSTER_POS.map(posFixedRow).join("") +
+    "</div>" +
+    '<p class="sim-fixed-sum" data-fixed-sum></p>' +
+    '<div class="sim-pos-rules" data-pos-rules-range hidden>' +
     ROSTER_POS.map(posRuleRow).join("") +
     "</div>" +
     '<p class="sim-field-hint down" data-pos-hint hidden></p>' +
@@ -161,7 +191,7 @@ function buildControlsHtml(config) {
 
   return (
     '<p class="cadence-explainer">Your seat autodrafts your board; ' +
-    `<span data-field-count>${escapeHtml(fieldDraftersText(DEFAULT_TEAMS - 1))}</span> follow ` +
+    `<span data-field-count>${escapeHtml(fieldDraftersText(teams - 1))}</span> follow ` +
     `${escapeHtml(config.label)} ADP with realistic noise and stacking. Exposures = share of sims a player lands on your roster.</p>` +
     '<div class="sim-grid">' +
     '<div class="sim-controls cadence-controls">' +
@@ -240,6 +270,12 @@ export function openSimPanel({ config, editor, storage, onRequestImport }) {
       const roundsInput = modalEl.querySelector("[data-rounds]");
       const posMinInputs = new Map(ROSTER_POS.map((p) => [p, modalEl.querySelector(`[data-pos-min="${p}"]`)]));
       const posMaxInputs = new Map(ROSTER_POS.map((p) => [p, modalEl.querySelector(`[data-pos-max="${p}"]`)]));
+      const posFixedInputs = new Map(ROSTER_POS.map((p) => [p, modalEl.querySelector(`[data-pos-fixed="${p}"]`)]));
+      const modeToggleEl = modalEl.querySelector("[data-mode-toggle]");
+      const modeBtns = Array.from(modalEl.querySelectorAll("[data-mode-btn]"));
+      const fixedRulesEl = modalEl.querySelector("[data-pos-rules-fixed]");
+      const rangeRulesEl = modalEl.querySelector("[data-pos-rules-range]");
+      const fixedSumEl = modalEl.querySelector("[data-fixed-sum]");
       const posHintEl = modalEl.querySelector("[data-pos-hint]");
       const runBtn = modalEl.querySelector("[data-run]");
       const progressWrap = modalEl.querySelector("[data-progress]");
@@ -300,16 +336,41 @@ export function openSimPanel({ config, editor, storage, onRequestImport }) {
       });
 
       // ---------------------------------------------------- roster-rules group
-      const savedPosRules = storage.get("simPosRules", null);
-      for (const p of ROSTER_POS) {
-        const saved = savedPosRules && savedPosRules[p];
-        if (saved && Number.isFinite(saved.min)) posMinInputs.get(p).value = String(saved.min);
-        if (saved && Number.isFinite(saved.max)) posMaxInputs.get(p).value = String(saved.max);
+      // Persisted shape (current): { mode: "fixed"|"range", fixed: {QB..TE},
+      // range: {QB:{min,max}..TE} }. MIGRATION: older saves stored just the
+      // flat range shape {QB:{min,max},...} with no `mode` key — treat that
+      // as range values and default mode to "fixed" (the new default), so
+      // the fixed inputs keep the config/markup defaults already in the DOM.
+      let posMode = "fixed";
+      const savedPosRulesRaw = storage.get("simPosRules", null);
+      if (savedPosRulesRaw && typeof savedPosRulesRaw === "object") {
+        const isCurrentShape = savedPosRulesRaw.mode === "fixed" || savedPosRulesRaw.mode === "range";
+        const savedShape = isCurrentShape
+          ? savedPosRulesRaw
+          : ROSTER_POS.some((p) => savedPosRulesRaw[p] && Number.isFinite(savedPosRulesRaw[p].min))
+            ? { mode: "fixed", fixed: null, range: savedPosRulesRaw }
+            : null;
+        if (savedShape) {
+          posMode = savedShape.mode === "range" ? "range" : "fixed";
+          if (savedShape.range) {
+            for (const p of ROSTER_POS) {
+              const r = savedShape.range[p];
+              if (r && Number.isFinite(r.min)) posMinInputs.get(p).value = String(r.min);
+              if (r && Number.isFinite(r.max)) posMaxInputs.get(p).value = String(r.max);
+            }
+          }
+          if (savedShape.fixed) {
+            for (const p of ROSTER_POS) {
+              const v = savedShape.fixed[p];
+              if (Number.isFinite(v)) posFixedInputs.get(p).value = String(v);
+            }
+          }
+        }
       }
 
       let posRulesValid = true;
 
-      function validatePosRules() {
+      function validatePosRulesRange() {
         const rounds = Math.max(1, Number(roundsInput.value) || DEFAULT_ROUNDS);
         let sumMin = 0;
         let sumMax = 0;
@@ -334,8 +395,38 @@ export function openSimPanel({ config, editor, storage, onRequestImport }) {
         return { valid: true, message: "" };
       }
 
+      function fixedSumAndRounds() {
+        const rounds = Math.max(1, Number(roundsInput.value) || DEFAULT_ROUNDS);
+        let sum = 0;
+        for (const p of ROSTER_POS) {
+          sum += Number(posFixedInputs.get(p).value) || 0;
+        }
+        return { sum, rounds };
+      }
+
+      function validatePosRulesFixed() {
+        for (const p of ROSTER_POS) {
+          const v = Number(posFixedInputs.get(p).value);
+          if (!Number.isFinite(v) || v < 0) {
+            return { valid: false, message: `${p} roster spots must be a non-negative number.` };
+          }
+        }
+        const { sum, rounds } = fixedSumAndRounds();
+        if (sum !== rounds) {
+          return { valid: false, message: `Build adds up to ${sum}, but the draft is ${rounds} rounds.` };
+        }
+        return { valid: true, message: "" };
+      }
+
+      function updateFixedSumReadout() {
+        const { sum, rounds } = fixedSumAndRounds();
+        fixedSumEl.textContent = `${sum} / ${rounds}`;
+        fixedSumEl.classList.toggle("down", sum !== rounds);
+      }
+
       function refreshPosRulesValidity() {
-        const { valid, message } = validatePosRules();
+        if (posMode === "fixed") updateFixedSumReadout();
+        const { valid, message } = posMode === "fixed" ? validatePosRulesFixed() : validatePosRulesRange();
         posRulesValid = valid;
         posHintEl.textContent = message;
         posHintEl.hidden = valid;
@@ -343,12 +434,32 @@ export function openSimPanel({ config, editor, storage, onRequestImport }) {
       }
 
       function persistPosRules() {
-        const rules = {};
+        const fixed = {};
+        const range = {};
         for (const p of ROSTER_POS) {
-          rules[p] = { min: Number(posMinInputs.get(p).value) || 0, max: Number(posMaxInputs.get(p).value) || 0 };
+          fixed[p] = Number(posFixedInputs.get(p).value) || 0;
+          range[p] = { min: Number(posMinInputs.get(p).value) || 0, max: Number(posMaxInputs.get(p).value) || 0 };
         }
-        persistStorage("simPosRules", rules);
+        persistStorage("simPosRules", { mode: posMode, fixed, range });
       }
+
+      function setMode(mode) {
+        posMode = mode;
+        modeBtns.forEach((b) => b.classList.toggle("on", b.getAttribute("data-mode-btn") === mode));
+        fixedRulesEl.hidden = mode !== "fixed";
+        fixedSumEl.hidden = mode !== "fixed";
+        rangeRulesEl.hidden = mode !== "range";
+        refreshPosRulesValidity();
+      }
+
+      modeToggleEl.addEventListener("click", (e) => {
+        const btn = e.target.closest("[data-mode-btn]");
+        if (!btn || running) return;
+        const mode = btn.getAttribute("data-mode-btn");
+        if (mode === posMode) return;
+        setMode(mode);
+        persistPosRules();
+      });
 
       for (const p of ROSTER_POS) {
         [posMinInputs.get(p), posMaxInputs.get(p)].forEach((input) => {
@@ -357,9 +468,13 @@ export function openSimPanel({ config, editor, storage, onRequestImport }) {
             persistPosRules();
           });
         });
+        posFixedInputs.get(p).addEventListener("input", () => {
+          refreshPosRulesValidity();
+          persistPosRules();
+        });
       }
       roundsInput.addEventListener("input", refreshPosRulesValidity);
-      refreshPosRulesValidity();
+      setMode(posMode);
 
       function updateStaleVisibility() {
         const changed = boardChangedSince.get(editor) === true;
@@ -369,9 +484,11 @@ export function openSimPanel({ config, editor, storage, onRequestImport }) {
 
       function renderResults() {
         if (!currentResult) return;
-        const { exposures, drafts, userSlot, deltaBase } = currentResult;
+        const { exposures, drafts, userSlot, deltaBase, buildLabel } = currentResult;
         summaryEl.classList.remove("dim", "warn");
-        summaryEl.innerHTML = `<span class="cadence-count">${drafts}</span> drafts · slot ${escapeHtml(slotLabel(userSlot))}`;
+        summaryEl.innerHTML =
+          `<span class="cadence-count">${drafts}</span> drafts · slot ${escapeHtml(slotLabel(userSlot))}` +
+          (buildLabel ? ` · ${escapeHtml(buildLabel)}` : "");
         const rows = exposures
           // Persisted runs store only {id, pct} — no count — so test whichever exists.
           .filter((e) => (Number(e.count) || Number(e.pct) || 0) > 0)
@@ -404,6 +521,7 @@ export function openSimPanel({ config, editor, storage, onRequestImport }) {
           drafts: savedRun.drafts,
           userSlot: savedRun.userSlot,
           deltaBase: null,
+          buildLabel: savedRun.buildLabel || null,
         };
         renderResults();
       }
@@ -415,7 +533,16 @@ export function openSimPanel({ config, editor, storage, onRequestImport }) {
         runBtn.classList.toggle("primary", !isRunning);
         runBtn.classList.toggle("ghost", isRunning);
         progressWrap.hidden = !isRunning;
-        const fields = [slotSel, iterSel, teamsInput, roundsInput, ...posMinInputs.values(), ...posMaxInputs.values()];
+        const fields = [
+          slotSel,
+          iterSel,
+          teamsInput,
+          roundsInput,
+          ...posMinInputs.values(),
+          ...posMaxInputs.values(),
+          ...posFixedInputs.values(),
+          ...modeBtns,
+        ];
         fields.forEach((el) => {
           el.disabled = isRunning;
         });
@@ -438,10 +565,21 @@ export function openSimPanel({ config, editor, storage, onRequestImport }) {
         const userSlot = slotVal === "rotate" || slotVal === "random" ? slotVal : Number(slotVal);
         const userPosMin = {};
         const userPosMax = {};
-        for (const p of ROSTER_POS) {
-          userPosMin[p] = Number(posMinInputs.get(p).value) || 0;
-          userPosMax[p] = Number(posMaxInputs.get(p).value) || 0;
+        if (posMode === "fixed") {
+          for (const p of ROSTER_POS) {
+            const v = Number(posFixedInputs.get(p).value) || 0;
+            userPosMin[p] = v;
+            userPosMax[p] = v;
+          }
+        } else {
+          for (const p of ROSTER_POS) {
+            userPosMin[p] = Number(posMinInputs.get(p).value) || 0;
+            userPosMax[p] = Number(posMaxInputs.get(p).value) || 0;
+          }
         }
+        // Fixed build gets a "3/5/7/3 build" note in the results summary;
+        // range mode has no single-number build to report.
+        const buildLabel = posMode === "fixed" ? `${ROSTER_POS.map((p) => userPosMin[p]).join("/")} build` : null;
 
         // Snapshot the board fresh for this run so results line up with
         // whatever the payload actually simulated against.
@@ -478,12 +616,13 @@ export function openSimPanel({ config, editor, storage, onRequestImport }) {
           } else if (msg.type === "result") {
             stopWorker();
             setRunning(false);
-            currentResult = { exposures: msg.exposures, drafts: msg.drafts, userSlot, deltaBase };
+            currentResult = { exposures: msg.exposures, drafts: msg.drafts, userSlot, deltaBase, buildLabel };
             boardChangedSince.set(editor, false);
             const ok = storage.set("simLastRun", {
               exposures: msg.exposures.map((e) => ({ id: e.id, pct: e.pct })),
               drafts: msg.drafts,
               userSlot,
+              buildLabel,
               ts: Date.now(),
             });
             if (!ok) showToast("Not saved (storage off)");

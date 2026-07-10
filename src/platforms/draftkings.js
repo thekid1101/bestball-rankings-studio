@@ -120,6 +120,10 @@ export default {
   columns: [{ key: "adp", label: "DK ADP", kind: "gold" }],
   rosterShape: { positions: ["QB", "RB", "WR", "TE"] },
   exportFilename: "draftkings_rankings.csv",
+  // Optional (C1): seeds the Simulate panel's Teams/Rounds inputs and the
+  // "Fixed build" per-position roster-rule defaults. DK best ball drafts
+  // run 20 rounds (vs. 18 for UD/Drafters).
+  simDefaults: { teams: 12, rounds: 20, fixedBuild: { QB: 3, RB: 6, WR: 8, TE: 3 } },
 
   parseImport,
   serializeExport,

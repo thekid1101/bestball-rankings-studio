@@ -16,6 +16,10 @@ export default {
   columns: [{ key: "adp", label: "UD ADP", kind: "gold" }],
   rosterShape: { positions: ["QB", "RB", "WR", "TE"] },
   exportFilename: "underdog_rankings.csv",
+  // Optional (C1): seeds the Simulate panel's Teams/Rounds inputs and the
+  // "Fixed build" per-position roster-rule defaults. Falls back to the
+  // panel's own constants when a platform omits this field.
+  simDefaults: { teams: 12, rounds: 18, fixedBuild: { QB: 3, RB: 5, WR: 7, TE: 3 } },
 
   parseImport(text) {
     const players = [];
