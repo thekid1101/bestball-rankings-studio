@@ -1,33 +1,9 @@
 import { normalizeName } from "../core/normalize.js";
-
-// CSV RFC-4180 line splitter: handles quoted fields with "" escapes
-function splitLine(line, delim = ",") {
-  const cells = [];
-  let current = "";
-  let quoted = false;
-  for (let i = 0; i < line.length; i++) {
-    const ch = line[i];
-    if (ch === '"') {
-      if (quoted && line[i + 1] === '"') {
-        current += '"';
-        i++;
-      } else {
-        quoted = !quoted;
-      }
-    } else if (ch === delim && !quoted) {
-      cells.push(current);
-      current = "";
-    } else {
-      current += ch;
-    }
-  }
-  cells.push(current);
-  return cells;
-}
+import { parseCsvRows, escapeCsvCell } from "../core/csv.js";
 
 // CSV field escaper: quote and double internal quotes (replicate source exactly)
 function esc(v) {
-  return v === "" || v == null ? "" : '"' + String(v).replace(/"/g, '""') + '"';
+  return escapeCsvCell(v, "nonEmpty");
 }
 
 export default {
@@ -45,15 +21,17 @@ export default {
     const players = [];
     const warnings = [];
 
-    // Split lines, filter empties
-    const lines = text.split(/\r\n|\r|\n/).filter((l) => l.length);
-    if (!lines.length) {
+    // Parse rows. emptyRowMode "raw" matches the old split-then-
+    // filter(l.length) behavior (only literally-blank lines are dropped;
+    // whitespace-only lines survive).
+    const rows = parseCsvRows(text, { emptyRowMode: "raw" });
+    if (!rows.length) {
       warnings.push("Empty file");
       return { players, warnings };
     }
 
     // Parse header: keep original names and create lowercase map for finding
-    const headerCells = splitLine(lines[0]);
+    const headerCells = rows[0];
     const originalHeaders = headerCells.map((h) => h.trim());
     const head = originalHeaders.map((h) => h.toLowerCase());
 
@@ -83,9 +61,9 @@ export default {
     const iBye = find("byeweek", "bye");
 
     // Parse rows
-    for (let k = 1; k < lines.length; k++) {
+    for (let k = 1; k < rows.length; k++) {
       try {
-        const cells = splitLine(lines[k]);
+        const cells = rows[k];
 
         // Helper to safely get cell with trimming
         const g = (i) => (i >= 0 && cells[i] != null ? cells[i].trim() : "");

@@ -6,6 +6,7 @@
 // purely structural (CSV/numbered-list/bare-list) and the player pool always
 // comes from the caller.
 import { normalizeName } from "./normalize.js";
+import { parseCsvRows } from "./csv.js";
 
 // ---- header alias tables (csv format) --------------------------------
 const RANK_ALIASES = new Set(["rank", "rk", "#"]);
@@ -31,52 +32,6 @@ const SUFFIXES = new Set(["JR", "SR", "I", "II", "III", "IV", "V"]);
 // stray punctuation/number-only lines, etc).
 function hasLetters(s) {
   return /[A-Za-z]/.test(s);
-}
-
-// ---- RFC-4180 CSV tokenizer (whole-text, handles quoted commas/quotes/
-// embedded newlines) -----------------------------------------------------
-function parseCSVRows(text) {
-  const rows = [];
-  let field = "";
-  let row = [];
-  let inQuotes = false;
-  const s = String(text || "");
-  for (let i = 0; i < s.length; i++) {
-    const c = s[i];
-    if (inQuotes) {
-      if (c === '"') {
-        if (s[i + 1] === '"') {
-          field += '"';
-          i++;
-        } else {
-          inQuotes = false;
-        }
-      } else {
-        field += c;
-      }
-      continue;
-    }
-    if (c === '"') {
-      inQuotes = true;
-    } else if (c === ",") {
-      row.push(field);
-      field = "";
-    } else if (c === "\r") {
-      // dropped; \n (below) terminates the row for both \r\n and lone \n
-    } else if (c === "\n") {
-      row.push(field);
-      rows.push(row);
-      row = [];
-      field = "";
-    } else {
-      field += c;
-    }
-  }
-  if (field.length > 0 || row.length > 0) {
-    row.push(field);
-    rows.push(row);
-  }
-  return rows;
 }
 
 function entriesFromCsvRows(csvRows) {
@@ -193,7 +148,7 @@ export function parseReferenceText(text) {
 
   // csv: header row (first non-blank CSV row) has a recognized player-alias
   // column. Checked first since it's the most structured/unambiguous format.
-  const csvRows = parseCSVRows(text).filter((row) => row.some((f) => f && f.trim() !== ""));
+  const csvRows = parseCsvRows(text, { keepEmptyRows: true }).filter((row) => row.some((f) => f && f.trim() !== ""));
   if (csvRows.length > 0) {
     const header = csvRows[0].map((h) => h.trim().toLowerCase());
     const hasPlayerHeader = header.length > 1 && header.some((h) => PLAYER_ALIASES.has(h));

@@ -1,4 +1,5 @@
 import { normalizeName } from "../core/normalize.js";
+import { parseCsvRows, escapeCsvCell } from "../core/csv.js";
 
 // ASSUMPTIONS & DECISIONS (verified against draft_rankings_editor.html source):
 // 1. ADP "0" or blank → null (not 0); matches relevant() check: num(adp)>0
@@ -9,44 +10,19 @@ import { normalizeName } from "../core/normalize.js";
 //    to enable byte-faithful keep-mode round-trip
 // 6. First 6 columns quoted with "" doubling; AVG unquoted (per toCSV serialization)
 
-// RFC-4180 CSV line parser: handles quoted cells with "" escapes
-function parseCSVLine(line) {
-  const cells = [];
-  let current = "";
-  let inQuotes = false;
-  for (let i = 0; i < line.length; i++) {
-    const char = line[i];
-    const nextChar = line[i + 1];
-
-    if (char === '"') {
-      if (inQuotes && nextChar === '"') {
-        current += '"';
-        i++;
-      } else {
-        inQuotes = !inQuotes;
-      }
-    } else if (char === "," && !inQuotes) {
-      cells.push(current);
-      current = "";
-    } else {
-      current += char;
-    }
-  }
-  cells.push(current);
-  return cells;
-}
-
 function parseImport(text) {
   const players = [];
   const warnings = [];
 
-  const lines = text.split(/\r\n|\r|\n/).filter((l) => l.length);
-  if (!lines.length) {
+  // emptyRowMode "raw": matches the old split-then-filter(l.length) behavior
+  // (only literally-blank lines are dropped; whitespace-only lines survive).
+  const rows = parseCsvRows(text, { emptyRowMode: "raw" });
+  if (!rows.length) {
     return { players, warnings };
   }
 
   // Parse header with case-insensitive, flexible matching
-  const headParsed = parseCSVLine(lines[0]);
+  const headParsed = rows[0];
   const head = headParsed.map((h) => h.trim().toLowerCase());
 
   // Fuzzy header matching: exact match first, then substring match
@@ -76,9 +52,9 @@ function parseImport(text) {
   }
 
   // Parse rows
-  for (let k = 1; k < lines.length; k++) {
+  for (let k = 1; k < rows.length; k++) {
     try {
-      const cells = parseCSVLine(lines[k]);
+      const cells = rows[k];
 
       // Helper to safely get and trim cell
       const g = (i) => (i >= 0 && cells[i] != null ? cells[i].trim() : "");
@@ -136,8 +112,7 @@ function parseImport(text) {
 
 // Quote a cell: quote and double internal quotes
 function quoteCell(v) {
-  v = String(v);
-  return '"' + v.replace(/"/g, '""') + '"';
+  return escapeCsvCell(v, "always");
 }
 
 function serializeExport(orderedPlayers, opts = {}) {

@@ -1,6 +1,9 @@
 // Safe per-platform persistence (contract C-storage). Every localStorage touch
 // in the app goes through here; access can throw (private mode, quota, disabled)
-// and must never crash the editor.
+// and must never crash the editor. set() round-trips the whole blob (one
+// readBlob + one stringify/setItem) per field; setMany() does the same for
+// several fields in a single round-trip — prefer it when writing more than
+// one field at once (e.g. autosave's order+tiers) to halve the I/O.
 export function createStorage(platformId) {
   const key = `bbrs_${platformId}_v1`;
 
@@ -32,6 +35,18 @@ export function createStorage(platformId) {
       try {
         const blob = readBlob();
         blob[field] = value;
+        globalThis.localStorage.setItem(key, JSON.stringify(blob));
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    // Write several fields in one readBlob -> Object.assign -> stringify+setItem
+    // round-trip, instead of one round-trip per field (see set()).
+    setMany(fields) {
+      try {
+        const blob = readBlob();
+        Object.assign(blob, fields);
         globalThis.localStorage.setItem(key, JSON.stringify(blob));
         return true;
       } catch {

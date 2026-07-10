@@ -27,8 +27,9 @@ const STEPS = [
     eyebrow: "Step 3 of 6",
     heading: "Make the board yours",
     body:
-      "Drag rows to reorder, click a rank number to type a new one, Shift/Ctrl-click for " +
-      "multi-select block moves, add tier breaks with the + next to a rank. Ctrl+Z undoes anything.",
+      "Once your board is loaded you can drag rows to reorder, click a rank number to type a new one, " +
+      "Shift/Ctrl-click for multi-select block moves, and add tier breaks with the + next to a rank. " +
+      "Ctrl+Z undoes anything — try it all right after this tour.",
     highlight: [],
   },
   {

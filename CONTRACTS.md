@@ -222,9 +222,13 @@ export function runSimulation({ players, userOrder, userSlot, params, seed, onDr
 // Returns: { exposures: [{ id, count, pct, avgPick, rounds: {r: n} }] (every player the
 //   user EVER drafted; sorted by pct desc), drafts, userSlotUsed, elapsedMs? }
 
-// src/workers/sim-worker.js — module worker. postMessage in: {cmd:"run", payload} |
-// {cmd:"cancel"}. Messages out: {type:"progress", done, total} (throttled ~10/s),
+// src/workers/sim-worker.js — module worker. postMessage in: {cmd:"run", payload}.
+// Messages out: {type:"progress", done, total} (throttled ~10/s),
 // {type:"result", exposures, drafts}, {type:"error", message}.
+// Cancellation = handler detach + terminate(); no cancel message. The host
+// (sim-panel.js) cancels an in-flight run by nulling the worker's
+// onmessage/onerror handlers and calling terminate() — there is no graceful
+// {cmd:"cancel"} round trip.
 // Schedule data: src/data/schedule-wk15-17.json (full team names; factual NFL schedule,
 // not proprietary). simulator.js accepts it as an injected param ({schedule}) so the
 // core stays pure; a static full-name<->abbr team map inside simulator.js normalizes

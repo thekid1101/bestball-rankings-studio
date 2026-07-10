@@ -267,22 +267,6 @@
 .arrow.down { color: var(--down); }
 .arrow.even { color: var(--even); }
 
-/* Drop indicator */
-.drop-ind {
-  position: absolute;
-  left: 8px;
-  right: 8px;
-  height: 2px;
-  background: var(--steel);
-  border-radius: 2px;
-  box-shadow: 0 0 8px var(--steel);
-  pointer-events: none;
-  z-index: 5;
-  display: none;
-}
-
-.drop-ind.show { display: block; }
-
 /* Reduced motion */
 @media (prefers-reduced-motion: reduce) {
   .row, .handle, .rank { transition: none; }

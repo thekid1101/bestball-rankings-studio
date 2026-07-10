@@ -296,15 +296,30 @@ function userPick(userOrderGlobal, globalTaken, pos, posMax, posMin, countsForSl
   if (choice != null) return choice;
 
   // Ultimate fallbacks (should essentially never trigger with sane posMax sums):
-  // any untaken player in the user's own order, ignoring caps...
+  // any untaken player in the user's own order that's still under its posMax
+  // cap (caps are never violated, even in these fallback tiers)...
   for (const gi of userOrderGlobal) {
-    if (!globalTaken[gi]) return gi;
+    if (globalTaken[gi]) continue;
+    const p = pos[gi];
+    const cnt = countsForSlot[p] || 0;
+    const cap = posMax[p] != null ? posMax[p] : Infinity;
+    if (cnt >= cap) continue;
+    return gi;
   }
-  // ...or, if userOrder itself is exhausted/short, any untaken player at all.
+  // ...or, if userOrder itself is exhausted/short, any untaken player at all,
+  // still subject to the same posMax cap check.
   for (const gi of allIndicesFallback) {
-    if (!globalTaken[gi]) return gi;
+    if (globalTaken[gi]) continue;
+    const p = pos[gi];
+    const cnt = countsForSlot[p] || 0;
+    const cap = posMax[p] != null ? posMax[p] : Infinity;
+    if (cnt >= cap) continue;
+    return gi;
   }
-  return -1;
+  // No legal player exists anywhere (every remaining player's position is
+  // capped out for this roster) — never violate posMax; leave this pick
+  // undrafted instead (caller treats null/-1 as "silently skip").
+  return null;
 }
 
 // ------------------------------------------------ user positional constraints

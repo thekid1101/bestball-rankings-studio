@@ -27,6 +27,21 @@ export function showToast(msg) {
   toastTimer = setTimeout(() => el.classList.remove("show"), 2600);
 }
 
+/* ================= file download ================= */
+// Shared Blob-download sequence: creates an object URL, clicks a throwaway
+// anchor, then revokes the URL once the download has had time to start.
+function downloadBlob(content, filename, mimeType) {
+  const blob = new Blob([content], { type: mimeType });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
 /* ================= generic modal ================= */
 let current = null;
 
@@ -41,7 +56,7 @@ export function closeModal() {
 
 function trapFocus(modalEl, e) {
   const nodes = modalEl.querySelectorAll(
-    'button:not([disabled]), [href], input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])'
+    'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
   );
   if (!nodes.length) return;
   const first = nodes[0];
@@ -166,8 +181,11 @@ export function openImportModal({ config, editor, storage, onLoaded }) {
         const reader = new FileReader();
         reader.onload = () => setPending(String(reader.result || ""), file.name);
         reader.onerror = () => {
+          pending = null;
           msg.textContent = "Could not read file.";
+          msg.classList.remove("ok");
           msg.classList.add("warn");
+          loadBtn.disabled = true;
         };
         reader.readAsText(file);
       }
@@ -253,15 +271,7 @@ export function openExportModal({ config, editor }) {
 
       modalEl.querySelector("[data-download]").addEventListener("click", () => {
         const { filename, text } = editor.exportCsv(readOpts());
-        const blob = new Blob([text], { type: "text/csv;charset=utf-8" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        downloadBlob(text, filename, "text/csv;charset=utf-8");
         msg.textContent = `Downloaded ${filename}`;
         msg.classList.add("ok");
         msg.classList.remove("warn");
@@ -366,6 +376,13 @@ export function openReferenceModal({ config, editor, storage }) {
             paste.value = String(reader.result || "");
             runMatch();
           };
+          reader.onerror = () => {
+            reportEl.textContent = "Could not read file.";
+            reportEl.classList.remove("ok");
+            reportEl.classList.add("warn");
+            applyBtn.disabled = true;
+            pendingSource = null;
+          };
           reader.readAsText(file);
         }
 
@@ -391,7 +408,8 @@ export function openReferenceModal({ config, editor, storage }) {
 
         clearBtn.addEventListener("click", () => {
           editor.applyReference(slot, null);
-          storage.set(slot === 0 ? "ref0" : "ref1", null);
+          const ok = storage.set(slot === 0 ? "ref0" : "ref1", null);
+          if (!ok) showToast("Not saved (storage off)");
           paste.value = "";
           reportEl.textContent = "";
           applyBtn.disabled = true;
@@ -539,15 +557,7 @@ export function openBackupModal() {
           appState: createStorage("app").getAll(),
         };
         const filename = `bestball-backup-${new Date().toISOString().slice(0, 10)}.json`;
-        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        setTimeout(() => URL.revokeObjectURL(url), 1000);
+        downloadBlob(JSON.stringify(payload, null, 2), filename, "application/json");
         msg.textContent = `Downloaded ${filename}`;
         msg.classList.add("ok");
         msg.classList.remove("warn");

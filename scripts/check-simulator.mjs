@@ -572,6 +572,60 @@ const BASE_PARAMS = { ...SIM_DEFAULTS, iterations: 50 };
   }
 }
 
+// ================================================================== Test 11: posMax never violated when caps sum short of nRounds
+// Regression guard for the userPick() exhaustion fallbacks: userPosMax sums
+// to 6 (QB1/RB2/WR2/TE1) against 18 rounds, so the user's board is
+// GUARANTEED to run out of legal (under-cap) players well before the draft
+// ends and fall through to the "ultimate fallback" tiers. Before the fix
+// those fallbacks ignored posMax entirely; this asserts they still respect
+// it (the roster ends up short — fewer than 18 picks — which is correct,
+// expected behavior, not a bug) and that the sim never throws.
+
+{
+  const iterations = 30;
+  const userPosMin = { QB: 0, RB: 0, WR: 0, TE: 0 };
+  const userPosMax = { QB: 1, RB: 2, WR: 2, TE: 1 }; // sum=6 < nRounds=18
+  const posLookup = new Map(POOL.map((p) => [p.id, p.pos]));
+
+  let threw = false;
+  let traceResult = null;
+  try {
+    traceResult = runSimulationWithTrace({
+      players: POOL,
+      userOrder: DEFAULT_USER_ORDER,
+      userSlot: 1,
+      params: { ...SIM_DEFAULTS, iterations, userPosMin, userPosMax },
+      seed: 111213,
+      schedule: SCHEDULE,
+    });
+  } catch (err) {
+    threw = true;
+  }
+  assert(!threw, "userPosMax sum (6) short of nRounds (18) does not throw");
+
+  let capsOk = true;
+  let sawShortRoster = false;
+  if (traceResult) {
+    const userCountsByDraft = new Map();
+    for (const pk of traceResult.picks) {
+      if (!pk.isUser) continue;
+      if (!userCountsByDraft.has(pk.draft)) userCountsByDraft.set(pk.draft, { QB: 0, RB: 0, WR: 0, TE: 0, total: 0 });
+      const c = userCountsByDraft.get(pk.draft);
+      const p = posLookup.get(pk.id);
+      c[p] = (c[p] || 0) + 1;
+      c.total++;
+    }
+    for (const [, c] of userCountsByDraft) {
+      for (const p of Object.keys(userPosMax)) {
+        if (c[p] > userPosMax[p]) capsOk = false;
+      }
+      if (c.total < SIM_DEFAULTS.nRounds) sawShortRoster = true;
+    }
+  }
+  assert(capsOk, "user roster never exceeds any userPosMax cap even when caps sum well short of nRounds (fallback tiers respect caps)");
+  assert(sawShortRoster, "user roster is correctly left short (< nRounds picks) rather than violating caps to fill it out");
+}
+
 console.log("");
 if (failures === 0) {
   console.log("ALL PASS (0 failures)");

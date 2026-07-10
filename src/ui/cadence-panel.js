@@ -133,11 +133,14 @@ export function openCadencePanel({ config, editor }) {
       let debounce = null;
 
       function readParams() {
+        const capRaw = modalEl.querySelector("[data-cap]").value;
+        const capNum = Number(capRaw);
+        const cap = capRaw.trim() === "" || !Number.isFinite(capNum) ? editor.getOrder().length : capNum;
         return {
           lamQB: Number(modalEl.querySelector('[data-field="lamQB"]').value),
           lamTE: Number(modalEl.querySelector('[data-field="lamTE"]').value),
           w: Number(modalEl.querySelector('[data-field="w"]').value),
-          cap: Number(modalEl.querySelector("[data-cap]").value) || editor.getOrder().length,
+          cap,
         };
       }
 

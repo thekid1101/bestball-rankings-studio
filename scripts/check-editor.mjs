@@ -7,6 +7,7 @@ import {
   moveIdsToRank,
   resolveMoveTargets,
   isValidStoredOrder,
+  reconcileOrder,
   buildAdpOrder,
   computeArrowDelta,
   isEdge,
@@ -113,6 +114,15 @@ check("rankOf: unknown id is -1", rankOf(order0, "nope") === -1);
   check("isValidStoredOrder: wrong length is rejected", isValidStoredOrder(fileOrder.slice(0, -1), fileOrder) === false);
   check("isValidStoredOrder: unknown id is rejected", isValidStoredOrder(fileOrder.slice(0, -1).concat(["nope"]), fileOrder) === false);
   check("isValidStoredOrder: non-array is rejected", isValidStoredOrder(null, fileOrder) === false);
+}
+
+/* ---- reconcileOrder (setOrder's dedupe/reconcile logic, FIX 5) ---- */
+{
+  const cur = ["a", "b", "c"];
+  check("reconcileOrder: duplicate incoming id yields a unique order (no duplicate rows)", arrEq(reconcileOrder(cur, ["a", "a", "b"]), ["a", "b", "c"]));
+  check("reconcileOrder: keeps first occurrence when deduping", arrEq(reconcileOrder(cur, ["c", "a", "c", "b"]), ["c", "a", "b"]));
+  check("reconcileOrder: unknown incoming id is dropped (current ids never disappear)", arrEq(reconcileOrder(cur, ["a", "zzz", "b"]), ["a", "b", "c"]));
+  check("reconcileOrder: current ids missing from input are appended in their existing order", arrEq(reconcileOrder(cur, ["b"]), ["b", "a", "c"]));
 }
 
 /* ---- buildAdpOrder ---- */

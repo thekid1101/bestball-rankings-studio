@@ -80,6 +80,20 @@ export function resolveMoveTargets(order, selection, id) {
   return [id];
 }
 
+// Reconcile an externally-supplied order (e.g. from setOrder) against the
+// current board order: dedupe `ids` first (first occurrence wins — a
+// duplicate id must never produce a duplicate row), drop any id no longer on
+// the board, then append any current id missing from `ids` (in its existing
+// relative order) so setOrder can never silently drop a player.
+export function reconcileOrder(order, ids) {
+  const deduped = [...new Set(ids)];
+  const cur = new Set(order);
+  const next = deduped.filter((id) => cur.has(id));
+  const seen = new Set(next);
+  order.forEach((id) => { if (!seen.has(id)) { next.push(id); seen.add(id); } });
+  return next;
+}
+
 // File-order default board: not currently used for loadPlayers() (contract
 // requires literal file order there), but exposed as a pure helper because
 // several platforms' file order IS their ADP order and a "seed to ADP" shell
@@ -297,9 +311,7 @@ export function createEditor({ config, mount, storage }) {
   }
 
   function autosave() {
-    const okOrder = storage.set("order", order.slice());
-    const okTiers = storage.set("tiers", tiers.slice());
-    const ok = okOrder && okTiers;
+    const ok = storage.setMany({ order: order.slice(), tiers: tiers.slice() });
     const status = ok ? { saved: true, message: "Saved" } : { saved: false, message: "Not saved (storage off)" };
     if (!ok) showToast("Not saved (storage off)");
     saveStatusCbs.forEach((cb) => {
@@ -325,27 +337,34 @@ export function createEditor({ config, mount, storage }) {
   }
 
   /* ---- filter/view computation ---- */
-  function refRanksFor(player) {
-    return [refRankFor(player, references[0]), refRankFor(player, references[1])];
+  // `cache` (id -> [refRank0, refRank1]) is an optional per-render-pass memo
+  // (built fresh in render()) so visibleIds/tabCounts/rowHtml don't each
+  // re-walk both reference sources for the same player. Callers outside a
+  // render pass (e.g. shift-click range selection) omit it and just compute.
+  function refRanksFor(player, cache) {
+    if (cache && cache.has(player.id)) return cache.get(player.id);
+    const v = [refRankFor(player, references[0]), refRankFor(player, references[1])];
+    if (cache) cache.set(player.id, v);
+    return v;
   }
 
-  function visibleIds() {
+  function visibleIds(refCache) {
     const rankMap = new Map();
     order.forEach((id, i) => rankMap.set(id, i + 1));
     return order.filter((id) => {
       const pl = players.get(id);
       if (!pl) return false;
-      return passesFilters(pl, rankMap.get(id), filt, refRanksFor(pl));
+      return passesFilters(pl, rankMap.get(id), filt, refRanksFor(pl, refCache));
     });
   }
 
-  function tabCounts() {
+  function tabCounts(refCache) {
     const counts = { ALL: 0 };
     positions.forEach((p) => (counts[p] = 0));
     order.forEach((id) => {
       const pl = players.get(id);
       if (!pl) return;
-      if (!inPool(pl, refRanksFor(pl))) return;
+      if (!inPool(pl, refRanksFor(pl, refCache))) return;
       counts.ALL++;
       if (counts[pl.pos] != null) counts[pl.pos]++;
     });
@@ -358,60 +377,71 @@ export function createEditor({ config, mount, storage }) {
     return (col && col.label) || "ADP";
   }
 
-  function refColumnHtml(pl, slot, boardRank) {
+  // refRank is the already-resolved refRankFor(pl, references[slot]) value
+  // (from the caller's refCache) so this never re-walks the reference source.
+  function refColumnHtml(pl, slot, boardRank, refRank) {
     const source = references[slot];
     if (!source) return "";
-    const rank = refRankFor(pl, source);
-    const arrow = computeArrowDelta(rank, boardRank, { decimal: false });
+    const arrow = computeArrowDelta(refRank, boardRank, { decimal: false });
     return (
       `<div class="ref src" data-slot="${slot}">` +
       `<span class="rl">${escapeHtml(source.label || "Ref")}</span>` +
-      `<span class="rv">${rank != null ? rank : "—"}</span>` +
+      `<span class="rv">${refRank != null ? refRank : "—"}</span>` +
       `<span class="arrow ${arrow.cls}">${arrow.text}</span>` +
       `</div>`
     );
   }
 
-  function rowHtml(id, rank, band) {
-    const pl = players.get(id);
+  function refsBoxHtml(pl, rank, refRanks) {
     const adpArrow = computeArrowDelta(pl.adp, rank, { decimal: true });
-    const refRanks = refRanksFor(pl);
+    return (
+      `<div class="ref adp"><span class="rl">${escapeHtml(goldColumnLabel())}</span>` +
+      `<span class="rv">${pl.adp != null ? fmtAdp(pl.adp) : "—"}</span>` +
+      `<span class="arrow ${adpArrow.cls}">${adpArrow.text}</span></div>` +
+      refColumnHtml(pl, 0, rank, refRanks[0]) +
+      refColumnHtml(pl, 1, rank, refRanks[1])
+    );
+  }
+
+  function rowHtml(id, rank, band, refCache) {
+    const pl = players.get(id);
+    const refRanks = refRanksFor(pl, refCache);
     const primaryRef = refRanks.find((r) => r != null) ?? null;
     const edge = isEdge(pl.adp, primaryRef, rank);
     const selCls = sel.has(id) ? " selected" : "";
     const bandCls = band ? " band" : "";
     const posCls = String(pl.pos || "").toLowerCase();
     return (
-      `<div class="row${selCls}${bandCls}" data-id="${id}">` +
+      `<div class="row${selCls}${bandCls}" data-id="${escapeHtml(id)}">` +
       `<div class="handle" data-drag title="Drag to reorder">⠿</div>` +
-      `<button type="button" class="rank" data-rank="${id}">${rank}</button>` +
+      `<button type="button" class="rank" data-rank="${escapeHtml(id)}">${rank}</button>` +
       `<span class="tier-add" data-tier-add="${rank}" title="Add tier break above">+</span>` +
       `<span class="pos-badge ${posCls}">${escapeHtml(pl.pos)}</span>` +
       `<span class="name">${escapeHtml(pl.name)}</span>` +
       `<span class="team">${escapeHtml(pl.team)}</span>` +
       (edge ? '<span class="edge-dot" title="Market and reference disagree — your edge"></span>' : "") +
       '<div class="refs">' +
-      `<div class="ref adp"><span class="rl">${escapeHtml(goldColumnLabel())}</span>` +
-      `<span class="rv">${pl.adp != null ? fmtAdp(pl.adp) : "—"}</span>` +
-      `<span class="arrow ${adpArrow.cls}">${adpArrow.text}</span></div>` +
-      refColumnHtml(pl, 0, rank) +
-      refColumnHtml(pl, 1, rank) +
+      refsBoxHtml(pl, rank, refRanks) +
       "</div>" +
       "</div>"
     );
   }
 
   function render() {
-    const vis = visibleIds();
+    // One id -> [refRank0, refRank1] memo shared by visibleIds/tabCounts/
+    // rowHtml for this render pass, instead of each re-resolving both
+    // reference sources per player.
+    const refCache = new Map();
+    const vis = visibleIds(refCache);
     const rankMap = new Map();
     order.forEach((id, i) => rankMap.set(id, i + 1));
     const sortedBreaks = tiers.slice().sort((a, b) => a - b);
 
     let html = "";
-    if (!vis.length) {
-      html = '<div class="empty">No players match these filters.</div>';
-    } else if (!players.size) {
+    if (!players.size) {
       html = '<div class="empty">Upload a file to build your board.</div>';
+    } else if (!vis.length) {
+      html = '<div class="empty">No players match these filters.</div>';
     }
 
     let renderedBreaks = 0;
@@ -426,12 +456,12 @@ export function createEditor({ config, mount, storage }) {
         }
       }
       const band = filt.tiers ? tierBandForRank(rank, sortedBreaks) === 1 : false;
-      html += rowHtml(id, rank, band);
+      html += rowHtml(id, rank, band, refCache);
     });
 
     el.list.innerHTML = html;
 
-    const counts = tabCounts();
+    const counts = tabCounts(refCache);
     mount.querySelectorAll("[data-count]").forEach((elm) => {
       const key = elm.getAttribute("data-count");
       elm.textContent = counts[key] != null ? counts[key] : 0;
@@ -440,6 +470,43 @@ export function createEditor({ config, mount, storage }) {
     if (el.bulk) el.bulk.classList.toggle("show", sel.size > 0);
     if (el.bulkCount) el.bulkCount.textContent = String(sel.size);
     syncHistoryButtons();
+  }
+
+  // Drag-end fast path (see onSortEnd): SortableJS already placed the rows
+  // correctly in the DOM, so re-render just the parts of each row that
+  // depend on boardRank (rank text, tier-add anchor, edge dot, ref arrows)
+  // instead of tearing down and rebuilding the whole list.
+  function refreshRowsInPlace() {
+    const rankMap = new Map();
+    order.forEach((id, i) => rankMap.set(id, i + 1));
+    const refCache = new Map();
+    el.list.querySelectorAll(".row").forEach((rowEl) => {
+      const id = rowEl.getAttribute("data-id");
+      const pl = players.get(id);
+      const rank = rankMap.get(id);
+      if (!pl || rank == null) return;
+
+      rowEl.classList.remove("band"); // no tier bars in this path (see onSortEnd guard)
+
+      const rankBtn = rowEl.querySelector("[data-rank]");
+      if (rankBtn) rankBtn.textContent = String(rank);
+      const tierAdd = rowEl.querySelector("[data-tier-add]");
+      if (tierAdd) tierAdd.setAttribute("data-tier-add", String(rank));
+
+      const refRanks = refRanksFor(pl, refCache);
+      const primaryRef = refRanks.find((r) => r != null) ?? null;
+      const edge = isEdge(pl.adp, primaryRef, rank);
+      let edgeDot = rowEl.querySelector(".edge-dot");
+      if (edge && !edgeDot) {
+        const teamEl = rowEl.querySelector(".team");
+        if (teamEl) teamEl.insertAdjacentHTML("afterend", '<span class="edge-dot" title="Market and reference disagree — your edge"></span>');
+      } else if (!edge && edgeDot) {
+        edgeDot.remove();
+      }
+
+      const refsEl = rowEl.querySelector(".refs");
+      if (refsEl) refsEl.innerHTML = refsBoxHtml(pl, rank, refRanks);
+    });
   }
 
   /* ---- selection / rank-edit / tier events ---- */
@@ -568,7 +635,19 @@ export function createEditor({ config, mount, storage }) {
 
     pushSnapshot();
     order = moveIdsBefore(order, dragIds, beforeId);
-    persistAndRender();
+    autosave();
+    // Tier bars are positioned by rank, so a reorder needs a full render to
+    // relocate them; the edges filter's membership depends on boardRank
+    // (isEdge compares against it), so a reorder can add/remove edge rows
+    // from view. Every other filter (pos/search/pool) is rank-independent,
+    // so in that common case SortableJS's DOM is already correct and we
+    // only need to refresh the rank-dependent bits of each row in place.
+    if ((filt.tiers && tiers.length) || filt.edges) {
+      render();
+    } else {
+      refreshRowsInPlace();
+    }
+    emitChange();
   }
 
   async function mountSortable() {
@@ -619,9 +698,14 @@ export function createEditor({ config, mount, storage }) {
     persistAndRender();
   }
   function onBulkRankKeydown(e) { if (e.key === "Enter") onBulkGo(); }
+  function onUndoClick() { undo(); }
+  function onRedoClick() { redo(); }
 
   function onKeydown(e) {
     if (destroyed) return;
+    // Undo/redo is board-scoped; while a modal is open it owns the keyboard,
+    // so the document-level shortcut handler must not fire underneath it.
+    if (document.querySelector(".scrim.show")) return;
     // Only the visible/attached instance should react to global shortcuts.
     if (mount.offsetParent === null && mount !== document.body) return;
     const active = document.activeElement;
@@ -649,8 +733,8 @@ export function createEditor({ config, mount, storage }) {
   el.bulkClear.addEventListener("click", onBulkClear);
   el.bulkGo.addEventListener("click", onBulkGo);
   el.bulkRank.addEventListener("keydown", onBulkRankKeydown);
-  el.undoBtn.addEventListener("click", () => undo());
-  el.redoBtn.addEventListener("click", () => redo());
+  el.undoBtn.addEventListener("click", onUndoClick);
+  el.redoBtn.addEventListener("click", onRedoClick);
   document.addEventListener("keydown", onKeydown);
 
   /* ---- public API (contract C2) ---- */
@@ -687,12 +771,8 @@ export function createEditor({ config, mount, storage }) {
 
   function setOrder(ids, opts = {}) {
     if (!Array.isArray(ids)) return;
-    const cur = new Set(order);
-    const next = ids.filter((id) => cur.has(id));
-    const seen = new Set(next);
-    order.forEach((id) => { if (!seen.has(id)) { next.push(id); seen.add(id); } });
     pushSnapshot();
-    order = next;
+    order = reconcileOrder(order, ids);
     persistAndRender();
     void opts; // label is accepted for future debugging/telemetry use, not required by rendering
   }
@@ -787,6 +867,8 @@ export function createEditor({ config, mount, storage }) {
     el.bulkClear.removeEventListener("click", onBulkClear);
     el.bulkGo.removeEventListener("click", onBulkGo);
     el.bulkRank.removeEventListener("keydown", onBulkRankKeydown);
+    el.undoBtn.removeEventListener("click", onUndoClick);
+    el.redoBtn.removeEventListener("click", onRedoClick);
     mount.innerHTML = "";
     mount.classList.remove("editor-root");
   }

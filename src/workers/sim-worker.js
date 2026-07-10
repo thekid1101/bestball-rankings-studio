@@ -6,23 +6,25 @@
 //
 // Protocol:
 //   in:  {cmd:"run", payload:{players, userOrder, userSlot, params, seed, schedule}}
-//        {cmd:"cancel"}
 //   out: {type:"progress", done, total}                         (throttled ~10/s)
-//        {type:"result", exposures, drafts, userSlotUsed, cancelled?}
+//        {type:"result", exposures, drafts, userSlotUsed}
 //        {type:"error", message}
+//
+// Cancellation is NOT a message in this protocol: the host page cancels a run
+// by detaching this worker's onmessage/onerror handlers and calling
+// terminate() (see stopWorker() in src/ui/sim-panel.js). There is no graceful
+// in-flight stop — the worker (and any in-progress runSimulation call) is
+// simply killed. Keep it that way; do not reintroduce a {cmd:"cancel"} path.
 
 import { runSimulation } from "../core/simulator.js";
 
 const PROGRESS_INTERVAL_MS = 100; // ~10/s
-
-let cancelRequested = false;
 
 function post(msg) {
   if (typeof postMessage === "function") postMessage(msg);
 }
 
 async function handleRun(payload) {
-  cancelRequested = false;
   let lastPostAt = 0;
 
   try {
@@ -40,9 +42,6 @@ async function handleRun(payload) {
           lastPostAt = now;
           post({ type: "progress", done, total });
         }
-        // Returning false tells runSimulation to stop between drafts.
-        if (cancelRequested) return false;
-        return undefined;
       },
     });
 
@@ -51,7 +50,6 @@ async function handleRun(payload) {
       exposures: result.exposures,
       drafts: result.drafts,
       userSlotUsed: result.userSlotUsed,
-      ...(cancelRequested ? { cancelled: true } : {}),
     });
   } catch (err) {
     post({ type: "error", message: err && err.message ? err.message : String(err) });
@@ -60,10 +58,6 @@ async function handleRun(payload) {
 
 function handleMessage(event) {
   const data = (event && event.data) || {};
-  if (data.cmd === "cancel") {
-    cancelRequested = true;
-    return;
-  }
   if (data.cmd === "run") {
     handleRun(data.payload);
   }

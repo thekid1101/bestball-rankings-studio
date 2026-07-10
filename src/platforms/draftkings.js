@@ -1,62 +1,13 @@
 import { normalizeName } from "../core/normalize.js";
-
-// RFC-4180 CSV parser that handles quoted cells, escaped quotes, and newlines within cells
-function parseCSVRows(text) {
-  const rows = [];
-  let currentRow = [];
-  let currentCell = "";
-  let inQuotes = false;
-
-  for (let i = 0; i < text.length; i++) {
-    const char = text[i];
-    const nextChar = text[i + 1];
-
-    if (char === '"') {
-      if (inQuotes && nextChar === '"') {
-        // Escaped quote
-        currentCell += '"';
-        i++; // Skip next quote
-      } else {
-        // Toggle quote mode
-        inQuotes = !inQuotes;
-      }
-    } else if (char === "," && !inQuotes) {
-      // End of cell
-      currentRow.push(currentCell);
-      currentCell = "";
-    } else if ((char === "\r" || char === "\n") && !inQuotes) {
-      // End of row
-      if (char === "\r" && nextChar === "\n") {
-        i++; // Skip \n in \r\n
-      }
-      currentRow.push(currentCell);
-      if (currentRow.join("").trim().length > 0) {
-        rows.push(currentRow);
-      }
-      currentRow = [];
-      currentCell = "";
-    } else {
-      currentCell += char;
-    }
-  }
-
-  // Handle final cell and row
-  if (currentCell || currentRow.length > 0) {
-    currentRow.push(currentCell);
-    if (currentRow.join("").trim().length > 0) {
-      rows.push(currentRow);
-    }
-  }
-
-  return rows;
-}
+import { parseCsvRows, escapeCsvCell } from "../core/csv.js";
 
 function parseImport(text) {
   const players = [];
   const warnings = [];
 
-  // Parse CSV rows, handling quoted cells with newlines
-  const rows = parseCSVRows(text);
+  // Parse CSV rows, handling quoted cells with newlines. Default
+  // emptyRowMode "trimmed" drops rows whose cells all trim to empty.
+  const rows = parseCsvRows(text);
 
   if (rows.length === 0) {
     return { players, warnings };
@@ -134,11 +85,7 @@ function parseImport(text) {
 
 // RFC-4180 cell quoting: quote if contains comma, quote, or newline
 function cell(v) {
-  v = String(v);
-  if (v.includes(",") || v.includes('"') || v.includes("\n")) {
-    return '"' + v.replace(/"/g, '""') + '"';
-  }
-  return v;
+  return escapeCsvCell(v, "needed");
 }
 
 function serializeExport(orderedPlayers, opts) {

@@ -54,6 +54,12 @@ function slotLabel(userSlot) {
   return `1.${String(userSlot).padStart(2, "0")}`;
 }
 
+// Grammar-correct "N field drafter(s)" phrase for the explainer text — nTeams
+// can be as low as 2 (1 field drafter), so this can't be a bare plural.
+function fieldDraftersText(n) {
+  return `${n} field drafter${n === 1 ? "" : "s"}`;
+}
+
 function fmtAdp(adp) {
   if (adp == null) return "—";
   return Number.isInteger(adp) ? String(adp) : adp.toFixed(1);
@@ -151,7 +157,8 @@ function buildControlsHtml(config) {
   ).join("");
 
   return (
-    '<p class="cadence-explainer">Your seat autodrafts your board; 11 field drafters follow ' +
+    '<p class="cadence-explainer">Your seat autodrafts your board; ' +
+    `<span data-field-count>${escapeHtml(fieldDraftersText(DEFAULT_TEAMS - 1))}</span> follow ` +
     `${escapeHtml(config.label)} ADP with realistic noise and stacking. Exposures = share of sims a player lands on your roster.</p>` +
     '<div class="sim-grid">' +
     '<div class="sim-controls cadence-controls">' +
@@ -183,15 +190,14 @@ export function openSimPanel({ config, editor, storage, onRequestImport }) {
   let activeWorker = null;
   let running = false;
 
-  function stopWorker({ sendCancel } = {}) {
+  function stopWorker() {
     if (!activeWorker) return;
-    if (sendCancel) {
-      try {
-        activeWorker.postMessage({ cmd: "cancel" });
-      } catch (_) {
-        /* ignore */
-      }
-    }
+    // Detach handlers BEFORE terminate() so a result/error message already
+    // queued on the main thread's event loop cannot fire afterward and
+    // persist/render a cancelled run (terminate() alone doesn't retract an
+    // already-queued message dispatch).
+    activeWorker.onmessage = null;
+    activeWorker.onerror = null;
     try {
       activeWorker.terminate();
     } catch (_) {
@@ -205,7 +211,7 @@ export function openSimPanel({ config, editor, storage, onRequestImport }) {
     bodyHtml,
     footHtml,
     onClose() {
-      stopWorker({ sendCancel: true });
+      stopWorker();
       running = false;
       currentHintUpdater = null;
     },
@@ -240,11 +246,24 @@ export function openSimPanel({ config, editor, storage, onRequestImport }) {
       const chipsEl = modalEl.querySelector("[data-chips]");
       const listEl = modalEl.querySelector("[data-list]");
       const staleEl = modalEl.querySelector("[data-stale]");
+      const fieldCountEl = modalEl.querySelector("[data-field-count]");
 
       let playersById = new Map(editor.getPlayers().map((p) => [p.id, p]));
       let rankById = new Map(editor.getOrder().map((id, i) => [id, i + 1]));
       let posFilter = "ALL";
       let currentResult = null; // { exposures, drafts, userSlot, deltaBase }
+
+      // Debounce-guard for the storage-off toast: only warn once per panel
+      // open rather than on every keystroke/change if persistence keeps failing.
+      let warnedStorage = false;
+      function persistStorage(key, value) {
+        const ok = storage.set(key, value);
+        if (!ok && !warnedStorage) {
+          warnedStorage = true;
+          showToast("Not saved (storage off)");
+        }
+        return ok;
+      }
 
       function populateSlots(forceValue) {
         const n = Math.max(2, Math.min(24, Number(teamsInput.value) || DEFAULT_TEAMS));
@@ -256,12 +275,25 @@ export function openSimPanel({ config, editor, storage, onRequestImport }) {
             .map((s) => `<option value="${s}">1.${String(s).padStart(2, "0")}</option>`)
             .join("");
         const opts = Array.from(slotSel.options).map((o) => o.value);
-        slotSel.value = opts.includes(prev) ? prev : "random";
+        const fellBack = !opts.includes(prev);
+        slotSel.value = fellBack ? "random" : prev;
+        // The requested slot no longer exists after a teams-count change —
+        // persist the fallback so a later reopen doesn't silently reuse a
+        // now-invalid saved slot.
+        if (fellBack) persistStorage("simUserSlot", slotSel.value);
+      }
+      function updateFieldCount() {
+        const n = Math.max(2, Math.min(24, Number(teamsInput.value) || DEFAULT_TEAMS));
+        if (fieldCountEl) fieldCountEl.textContent = fieldDraftersText(n - 1);
       }
       populateSlots(storage.get("simUserSlot", "random"));
-      teamsInput.addEventListener("input", () => populateSlots());
+      updateFieldCount();
+      teamsInput.addEventListener("input", () => {
+        populateSlots();
+        updateFieldCount();
+      });
       slotSel.addEventListener("change", () => {
-        storage.set("simUserSlot", slotSel.value);
+        persistStorage("simUserSlot", slotSel.value);
       });
 
       // ---------------------------------------------------- roster-rules group
@@ -277,6 +309,7 @@ export function openSimPanel({ config, editor, storage, onRequestImport }) {
       function validatePosRules() {
         const rounds = Math.max(1, Number(roundsInput.value) || DEFAULT_ROUNDS);
         let sumMin = 0;
+        let sumMax = 0;
         for (const p of ROSTER_POS) {
           const min = Number(posMinInputs.get(p).value);
           const max = Number(posMaxInputs.get(p).value);
@@ -287,9 +320,13 @@ export function openSimPanel({ config, editor, storage, onRequestImport }) {
             return { valid: false, message: `${p} minimum (${min}) is greater than its maximum (${max}).` };
           }
           sumMin += min;
+          sumMax += max;
         }
         if (sumMin > rounds) {
           return { valid: false, message: `Position minimums add up to ${sumMin}, more than your ${rounds} rounds.` };
+        }
+        if (sumMax < rounds) {
+          return { valid: false, message: `Position maximums add up to ${sumMax}, fewer than your ${rounds} rounds.` };
         }
         return { valid: true, message: "" };
       }
@@ -307,7 +344,7 @@ export function openSimPanel({ config, editor, storage, onRequestImport }) {
         for (const p of ROSTER_POS) {
           rules[p] = { min: Number(posMinInputs.get(p).value) || 0, max: Number(posMaxInputs.get(p).value) || 0 };
         }
-        storage.set("simPosRules", rules);
+        persistStorage("simPosRules", rules);
       }
 
       for (const p of ROSTER_POS) {
@@ -478,7 +515,7 @@ export function openSimPanel({ config, editor, storage, onRequestImport }) {
       }
 
       function cancelRun() {
-        stopWorker({ sendCancel: true });
+        stopWorker();
         setRunning(false);
         // A cancelled run is discarded (never persisted, never a Δ baseline);
         // restore the previous results view, or an idle summary if none.
