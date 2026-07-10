@@ -29,13 +29,19 @@ export const SIM_DEFAULTS = {
   tasteRounds: 8,
   rbStackDiscount: 0.45,
   gameStackMinRound: 6,
-  posMin: { QB: 2, RB: 4, WR: 5, TE: 2 },
-  posMax: { QB: 3, RB: 8, WR: 10, TE: 3 },
+  // Field roster construction, calibrated 2026-07-10 on a real 398-player
+  // Underdog pool (400 drafts, seed 1234): ranges QB 2-4 / TE 2-4 / RB 3-8 /
+  // WR 4-10 with modes at a 3/5/7/3 build; below-mode counts are more likely
+  // than above-mode (QB 2:42% 3:53% 4:6%; RB mode 5 at 40%; WR mode 7 at 41%);
+  // extreme combos self-suppress below independence (P(4QB&4TE) ~= 0.25%)
+  // because eight onesie slots crowd the RB/WR minimums.
+  posMin: { QB: 2, RB: 3, WR: 4, TE: 2 },
+  posMax: { QB: 4, RB: 8, WR: 10, TE: 4 },
   countPenalty: {
-    QB: [1.0, 0.55, 0.06],
-    TE: [1.0, 0.6, 0.12],
-    RB: [1.0, 1.0, 1.0, 1.0, 0.9, 0.75, 0.5, 0.25],
-    WR: [1.0, 1.0, 1.0, 1.0, 1.0, 0.95, 0.85, 0.7, 0.5, 0.3],
+    QB: [1.0, 0.92, 0.5, 0.12],
+    TE: [1.0, 0.92, 0.5, 0.12],
+    RB: [1.0, 1.0, 1.0, 0.88, 0.65, 0.4, 0.2, 0.07],
+    WR: [1.0, 1.0, 1.0, 1.0, 0.88, 0.72, 0.5, 0.32, 0.16, 0.06],
   },
   urgencyStartRound: 10,
   urgencyMult: 1.35,

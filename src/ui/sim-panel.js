@@ -15,7 +15,10 @@ const DEFAULT_TEAMS = 12;
 const DEFAULT_ROUNDS = 18;
 const POS_CHIPS = ["ALL", "QB", "RB", "WR", "TE"];
 const ROSTER_POS = ["QB", "RB", "WR", "TE"];
-// Defaults mirror SIM_DEFAULTS.posMin/posMax in src/core/simulator.js.
+// USER-seat defaults — deliberately tighter than the field's SIM_DEFAULTS
+// bounds (field: QB/TE 2-4, RB 3-8, WR 4-10): a best-available autodrafter
+// with a 4-QB cap would take the 4th QB in most sims, so the user's own seat
+// defaults to the classic 2-3/4-8/5-10/2-3 shape. Editable per run.
 const POS_RULE_DEFAULTS = { QB: [2, 3], RB: [4, 8], WR: [5, 10], TE: [2, 3] };
 
 // Per-editor-instance "board changed since last sim run" flag. Registered

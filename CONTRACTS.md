@@ -194,8 +194,11 @@ export const SIM_DEFAULTS = {
   maxReachEarly: 18, maxReachMid: 26, maxReachLate: 40,
   archetypes: [["hard",.5,5,1.8],["soft",.38,2.5,1.35],["none",.12,1,1]],
   tasteSd: 0.35, tasteRounds: 8, rbStackDiscount: 0.45, gameStackMinRound: 6,
-  posMin: {QB:2,RB:4,WR:5,TE:2}, posMax: {QB:3,RB:8,WR:10,TE:3},
-  countPenalty: { /* per sim.py */ }, urgencyStartRound: 10, urgencyMult: 1.35,
+  posMin: {QB:2,RB:3,WR:4,TE:2}, posMax: {QB:4,RB:8,WR:10,TE:4},
+  countPenalty: { /* retuned 2026-07-10: field builds range QB/TE 2-4, RB 3-8,
+    WR 4-10 with modes at 3/5/7/3; below-mode more likely than above-mode;
+    extreme combos (4QB+4TE) self-suppress below independence */ },
+  urgencyStartRound: 10, urgencyMult: 1.35,
 };
 
 export function runSimulation({ players, userOrder, userSlot, params, seed, onDraftDone })
