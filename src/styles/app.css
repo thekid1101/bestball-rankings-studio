@@ -1132,6 +1132,17 @@ a.btn { text-decoration: none; }
   box-shadow: 0 0 0 2px var(--steel), 0 0 14px var(--steel);
   border-radius: 8px;
   transition: box-shadow .2s;
+  /* Lift the highlighted element above the tour scrim so it reads at full
+     brightness while the rest of the page dims slightly. */
+  position: relative;
+  z-index: 51;
+}
+
+/* Tour mode: the guide points at real UI, so the backdrop stays nearly
+   clear instead of the default 60% black + blur. */
+.scrim.scrim-tour {
+  background: rgba(0, 0, 0, .18);
+  backdrop-filter: none;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -116,6 +116,7 @@ function runTour(onDone) {
     if (done) return;
     done = true;
     clearHighlights();
+    document.querySelector(".scrim")?.classList.remove("scrim-tour");
     if (tourKeyHandler) {
       document.removeEventListener("keydown", tourKeyHandler);
       tourKeyHandler = null;
@@ -158,6 +159,9 @@ function runTour(onDone) {
     footHtml: footHtml(0),
     onClose: finish,
     onMount(el) {
+      // The tour points at real UI — keep the backdrop nearly clear so the
+      // highlighted elements stay visible (the default scrim buries them).
+      document.querySelector(".scrim")?.classList.add("scrim-tour");
       applyHighlight(STEPS[0].highlight);
       wireFoot(el);
       tourKeyHandler = (e) => {
