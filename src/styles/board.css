@@ -78,6 +78,8 @@
   line-height: 1;
   letter-spacing: -2px;
   transition: .1s;
+  /* Touch: dragging the handle must reorder, not scroll the list. */
+  touch-action: none;
 }
 
 .handle:hover { color: var(--ink2); }
@@ -273,11 +275,26 @@
   .row.row-chosen { box-shadow: none; }
 }
 
-/* Responsive */
-@media (max-width: 560px) {
-  .refs { display: none; }
+/* Touch: bigger grab targets, tier gutter always visible (no hover). */
+@media (pointer: coarse) {
+  .handle { width: 28px; font-size: 17px; padding: 8px 0; }
+  .gutter { width: 20px; opacity: .55; }
+}
+
+/* Responsive: shed row columns gradually — team text first, then the violet
+   expert chips; the gold ADP chip survives down to very narrow phones. */
+@media (max-width: 700px) {
   .team { display: none; }
+  .ref { width: 82px; padding: 0 7px; }
   .row { gap: 10px; padding: 8px 10px 8px 4px; }
+}
+
+@media (max-width: 640px) {
+  .refs .ref.src { display: none; }
+}
+
+@media (max-width: 380px) {
+  .refs { display: none; }
 }
 
 @media (max-width: 360px) {

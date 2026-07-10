@@ -18,6 +18,7 @@ body {
   display: flex;
   flex-direction: column;
   height: 100vh;
+  height: 100dvh; /* mobile: track the real viewport as the URL bar collapses */
   max-width: 1120px;
   margin: 0 auto;
 }
@@ -433,6 +434,7 @@ select:focus-visible, .sel:focus-visible {
 /* Footer */
 .foot {
   padding: 8px 20px;
+  padding-bottom: calc(8px + env(safe-area-inset-bottom, 0px));
   border-top: 1px solid var(--edge);
   background: var(--bg2);
   display: flex;
@@ -527,6 +529,21 @@ a.btn { text-decoration: none; }
   transform: translateY(8px);
   opacity: 0;
   transition: transform .16s ease-out, opacity .16s ease-out;
+  /* Tall dialogs (Simulate, Targets solver, Cadence) must never grow past the
+     viewport: header + footer stay pinned, the body scrolls. */
+  display: flex;
+  flex-direction: column;
+  max-height: 90vh;
+  max-height: 90dvh;
+}
+
+.modal .body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: var(--scroll-track) transparent;
 }
 
 .scrim.show .modal {
@@ -902,10 +919,70 @@ a.btn { text-decoration: none; }
   .titles p { display: none; }
 }
 
+/* ============================= Mobile ============================= */
+
+/* Touch devices: no hover reveals, no sub-16px inputs (iOS zooms on focus). */
+@media (pointer: coarse) {
+  .gutter { opacity: .55; }
+}
+
+@media (pointer: coarse) and (max-width: 1024px) {
+  input, select, textarea, .sel { font-size: 16px; }
+  .rank input { font-size: 15px; }
+}
+
+/* Phones / narrow windows: restack the header — brand + platform tabs on the
+   first line, actions as a swipeable strip on the second. */
+@media (max-width: 700px) {
+  .header {
+    flex-wrap: wrap;
+    gap: 10px;
+    row-gap: 8px;
+    padding: 10px 12px 8px;
+  }
+  .titles p { display: none; }
+  .titles h1 { font-size: 14px; }
+  .brand { gap: 8px; min-width: 0; flex: 1; }
+  .brand-icon { width: 30px; height: 30px; font-size: 15px; }
+  .spacer { display: none; }
+  .tabs { max-width: 100%; overflow-x: auto; scrollbar-width: none; }
+  .tabs::-webkit-scrollbar { display: none; }
+  .actions {
+    width: 100%;
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+    padding-bottom: 2px;
+  }
+  .actions::-webkit-scrollbar { display: none; }
+  .actions .btn { flex: none; }
+
+  .toolbar, .editor-toolbar { padding: 8px 12px; gap: 8px; }
+  .editor-toolbar .tabs { flex: none; }
+  input.search { min-width: 130px; max-width: none; }
+  .sel-count { display: none; }
+  .counts { display: none; }
+
+  .listwrap { padding: 8px 8px 40px; }
+  .bulk-bar { padding: 8px 12px; gap: 8px; flex-wrap: wrap; }
+
+  .foot { padding-left: 12px; padding-right: 12px; gap: 10px; }
+}
+
 @media (max-width: 560px) {
   .app { max-width: 100%; }
-  .modal { width: 92vw; }
-  .toolbar, .editor-toolbar { flex-wrap: wrap; }
+  .modal { width: 94vw; max-height: 94vh; max-height: 94dvh; }
+  .modal:has(.sim-grid), .modal:has(.cadence-grid) { width: 94vw; }
+  .modal h2 { padding: 12px 14px; }
+  .modal .body { padding: 12px 14px; }
+  .modal .foot2 { padding: 10px 14px; }
+  .modal textarea { height: 120px; }
+  /* Drop the header title text entirely — the brand icon carries it, the
+     platform switcher gets the room. */
+  .titles { display: none; }
+  .cadence-scroll { max-height: none; }
 }
 
 @media (max-width: 360px) {
