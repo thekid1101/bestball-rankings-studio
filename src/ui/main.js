@@ -6,7 +6,7 @@ import { createStorage } from "../core/storage.js";
 import { createEditor } from "../core/editor.js";
 import { buildReferenceSource } from "../core/references.js";
 import { buildShell, setActiveTab, setAccent, renderEmptyState } from "./shell.js";
-import { openImportModal, openExportModal, openReferenceModal, openResetModal, openBackupModal, showToast } from "./modals.js";
+import { openImportModal, openExportModal, openReferenceModal, openResetModal, openBackupModal, openSupportModal, showToast } from "./modals.js";
 import { openCadencePanel } from "./cadence-panel.js";
 import { openSimPanel } from "./sim-panel.js";
 
@@ -138,6 +138,7 @@ function boot() {
   shell.actionButtons.simulate.addEventListener("click", openSim);
   shell.actionButtons.export.addEventListener("click", openExport);
   shell.actionButtons.backup.addEventListener("click", () => openBackupModal());
+  shell.actionButtons.support.addEventListener("click", () => openSupportModal());
   shell.actionButtons.reset.addEventListener("click", openReset);
   shell.tabsEl.addEventListener("click", (e) => {
     const btn = e.target.closest("[data-platform]");

@@ -458,6 +458,42 @@ select:focus-visible, .sel:focus-visible {
   background: var(--dot-color);
 }
 
+.foot-spacer { flex: 1; }
+
+.foot-link {
+  border: none;
+  background: transparent;
+  color: var(--ink3);
+  font-size: 11px;
+  font-family: inherit;
+  cursor: pointer;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: .12s;
+}
+.foot-link:hover { color: var(--gold-t); }
+.foot-link:focus-visible { outline: 2px solid var(--steel); outline-offset: 2px; }
+
+/* Support modal */
+.support-addr { display: flex; align-items: center; gap: 8px; }
+.support-coin {
+  font-weight: 800;
+  font-size: 11px;
+  color: var(--gold-t);
+  min-width: 36px;
+}
+.support-addr code {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  background: var(--code-bg);
+  border: 1px solid var(--edge);
+  border-radius: 6px;
+  padding: 4px 8px;
+  overflow-wrap: anywhere;
+  flex: 1;
+}
+a.btn { text-decoration: none; }
+
 /* Modal & backdrop */
 .scrim {
   position: fixed;

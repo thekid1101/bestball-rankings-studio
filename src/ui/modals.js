@@ -435,6 +435,59 @@ export function openResetModal({ config, editor, storage, onReset }) {
   });
 }
 
+/* ================= support / donations modal ================= */
+// Donation destinations are hard-coded, user-owned, and display-only: a
+// PayPal.me link and (optionally) crypto receiving addresses with copy
+// buttons. No external scripts, no tracking — the site stays fully static.
+const PAYPAL_URL = "https://paypal.me/JHDCARDS";
+const CRYPTO_ADDRESSES = [
+  { coin: "BTC", address: "3Baufb5UxmFmATy7K5bgXt7dTgKa8jPKm5" },
+  { coin: "ETH", address: "0x068e3cc3E9f7C7867Dcf8004f4759a3D3b1EA0F2" },
+  { coin: "SOL", address: "G6zZDJGNfTHYeGBQxD37NZ2YVaAwgQT2kn6V5btrcxyU" },
+];
+
+export function openSupportModal() {
+  const cryptoHtml = CRYPTO_ADDRESSES.length
+    ? "<hr />" +
+      "<p><strong>Prefer crypto?</strong></p>" +
+      CRYPTO_ADDRESSES.map(
+        (c, i) =>
+          `<p class="support-addr"><span class="support-coin">${escapeHtml(c.coin)}</span> ` +
+          `<code data-addr="${i}">${escapeHtml(c.address)}</code> ` +
+          `<button type="button" class="btn" data-copy-addr="${i}">Copy</button></p>`
+      ).join("")
+    : "";
+
+  openModal({
+    title: "Support this tool",
+    bodyHtml:
+      "<p>Bestball Rankings Studio is free, has no ads, and never sees your data. " +
+      "If it helps your drafts and you feel like tossing something in the tip jar:</p>" +
+      `<p><a class="btn primary" href="${PAYPAL_URL}" target="_blank" rel="noopener noreferrer">Donate with PayPal</a></p>` +
+      cryptoHtml +
+      '<p class="msg" data-msg></p>',
+    footHtml: '<span></span><span><button type="button" class="btn ghost" data-close>Close</button></span>',
+    onMount(modalEl) {
+      modalEl.querySelector("[data-close]").addEventListener("click", closeModal);
+      modalEl.querySelectorAll("[data-copy-addr]").forEach((btn) => {
+        btn.addEventListener("click", async () => {
+          const i = btn.getAttribute("data-copy-addr");
+          const addr = CRYPTO_ADDRESSES[Number(i)]?.address || "";
+          const msg = modalEl.querySelector("[data-msg]");
+          try {
+            await navigator.clipboard.writeText(addr);
+            msg.textContent = `${CRYPTO_ADDRESSES[Number(i)].coin} address copied — double-check the first and last characters after pasting.`;
+            msg.classList.add("ok");
+          } catch (_) {
+            msg.textContent = "Could not access clipboard — select and copy the address manually.";
+            msg.classList.add("warn");
+          }
+        });
+      });
+    },
+  });
+}
+
 /* ================= backup / restore modal ================= */
 // One .json file covering ALL platforms (pools, orders, tiers, expert-ADP
 // sources, sim settings) plus app state. Restore overwrites and reloads.

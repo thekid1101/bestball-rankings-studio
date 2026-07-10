@@ -40,6 +40,8 @@ export function buildShell(appRoot, platformList) {
         '<span data-save-status>Ready</span>' +
         '<span class="dot"></span>' +
         '<span data-platform-note></span>' +
+        '<span class="foot-spacer"></span>' +
+        '<button type="button" class="foot-link" data-action="support">♥ Support this tool</button>' +
       "</div>" +
     "</div>";
 
@@ -64,6 +66,7 @@ export function buildShell(appRoot, platformList) {
       export: appRoot.querySelector('[data-action="export"]'),
       backup: appRoot.querySelector('[data-action="backup"]'),
       reset: appRoot.querySelector('[data-action="reset"]'),
+      support: appRoot.querySelector('[data-action="support"]'),
     },
   };
 }
